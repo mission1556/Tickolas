@@ -1,0 +1,185 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function isSeller() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "seller";
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function orgPath(orgId) {
+      return /databases/$(database)/documents/organizations/$(orgId);
+    }
+
+    function eventPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId);
+    }
+
+    function orgExists(orgId) {
+      return exists(orgPath(orgId));
+    }
+
+    function isOrgOwner(orgId) {
+      return signedIn()
+        && orgExists(orgId)
+        && get(orgPath(orgId)).data.ownerId == request.auth.uid;
+    }
+
+    function publicOrg() {
+      return resource.data.approved == true;
+    }
+
+    function publicEvent() {
+      return resource.data.status == "live";
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId)
+        && request.resource.data.role in ["buyer", "seller"]
+        && request.resource.data.createdAt is timestamp;
+      allow update: if isAdmin()
+        || (
+          isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "phone", "updatedAt"])
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.createdAt == resource.data.createdAt
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /organizations/{orgId} {
+      allow read: if publicOrg() || signedIn();
+
+      allow create: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.approved == false
+          && request.resource.data.status in ["pending", "review"]
+          && request.resource.data.name is string
+          && request.resource.data.type is string
+          && request.resource.data.createdAt is timestamp
+        );
+
+      allow update: if isAdmin()
+        || (
+          isOrgOwner(orgId)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["approved", "status"])
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read: if publicEvent() || signedIn();
+
+      allow create: if isAdmin()
+        || (
+        isSeller()
+        && request.resource.data.orgId is string
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == "review"
+        && request.resource.data.sold == 0
+        && request.resource.data.capacity is int
+        && request.resource.data.capacity > 0
+        && request.resource.data.price is int
+        && request.resource.data.price > 0
+        && request.resource.data.title is string
+        && request.resource.data.venue is string
+        && request.resource.data.category is string
+        && request.resource.data.date is string
+        && request.resource.data.createdAt is timestamp
+        );
+
+      allow update: if isAdmin()
+        || (
+          isSeller()
+          && resource.data.createdBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "orgId",
+            "sellerEmail",
+            "title",
+            "category",
+            "venue",
+            "imageUrl",
+            "date",
+            "price",
+            "capacity",
+            "createdBy",
+            "status",
+            "updatedAt"
+          ])
+          && request.resource.data.status == "review"
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.capacity is int
+          && request.resource.data.capacity >= resource.data.sold
+          && request.resource.data.price is int
+          && request.resource.data.price > 0
+        )
+        || (
+          signedIn()
+          && resource.data.status == "live"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["sold"])
+          && request.resource.data.sold is int
+          && request.resource.data.sold >= resource.data.sold
+          && request.resource.data.sold <= resource.data.capacity
+        );
+
+      allow delete: if isAdmin()
+        || (
+          isSeller()
+          && resource.data.createdBy == request.auth.uid
+          && resource.data.status in ["review", "rejected"]
+        );
+    }
+
+    match /orders/{orderId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.eventId is string
+        && exists(eventPath(request.resource.data.eventId))
+        && get(eventPath(request.resource.data.eventId)).data.status == "live"
+        && request.resource.data.buyerName is string
+        && request.resource.data.buyerEmail is string
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity > 0
+        && request.resource.data.quantity <= (
+          get(eventPath(request.resource.data.eventId)).data.capacity -
+          get(eventPath(request.resource.data.eventId)).data.sold
+        )
+        && request.resource.data.gross is number
+        && request.resource.data.gross == (
+          get(eventPath(request.resource.data.eventId)).data.price *
+          request.resource.data.quantity
+        )
+        && request.resource.data.fee is number
+        && request.resource.data.fee == request.resource.data.gross / 100
+        && request.resource.data.orgShare is number
+        && request.resource.data.orgShare == request.resource.data.gross - request.resource.data.fee
+        && request.resource.data.paymentMethod in ["bKash", "Nagad", "Rocket"]
+        && request.resource.data.status == "confirmed"
+        && request.resource.data.createdAt is timestamp;
+
+      allow update, delete: if isAdmin();
+    }
+  }
+}

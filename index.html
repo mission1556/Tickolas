@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!--
+      Tickolas index.html Table of Contents
+      1. Page metadata and assets
+      2. App shell and top navigation
+      3. Home / landing page
+      4. Admin panel
+      5. Seller panel
+      6. Buyer panel and checkout
+      7. Event details modal
+      8. Authentication modal
+      9. Toast and scripts
+    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tickolas Ticketing Workspace</title>
+    <link rel="icon" type="image/png" href="assets/tickolas-logo.png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <!-- 2. App shell and top navigation -->
+    <div class="app-shell">
+      <header class="sidebar" aria-label="Tickolas navigation">
+        <a class="brand" href="#home" aria-label="Tickolas home" id="homeLink">
+          <img class="brand-mark" src="assets/tickolas-logo.png" alt="Tickolas logo">
+          <span>
+            <strong>Tickolas</strong>
+            <small>Tickets made simple</small>
+          </span>
+        </a>
+
+        <div class="header-actions">
+          <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark theme" aria-pressed="false">
+            <span class="theme-toggle-track">
+              <span class="theme-toggle-thumb"></span>
+            </span>
+            <span class="theme-toggle-text">Light</span>
+          </button>
+          <button class="ghost-button dark" id="adminAccess" type="button" hidden>Admin</button>
+          <button class="primary-button" id="openLogin" type="button">Sign Up/Login</button>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <!-- Shared landing hero / video banner -->
+        <header class="topbar">
+          <video class="hero-video" autoplay muted loop playsinline aria-hidden="true">
+            <source src="assets/hero-bg.mp4.mp4" type="video/mp4">
+          </video>
+          <div class="topbar-copy">
+            <p class="eyebrow">Event ticket marketplace</p>
+            <h1>Find your next event with <span class="hero-brand-word"><img class="hero-brand-logo" src="assets/tickolas-logo-mark.png" alt="T">ickolas.</span></h1>
+            <p class="hero-copy">Browse concerts, workshops, conferences, and charity events. Buyers can sign in to book tickets, and organizers can sign in to sell.</p>
+          </div>
+        </header>
+
+        <div class="page-loader" id="pageLoader" hidden>
+          <span class="skeleton skeleton-text" id="pageLoaderText">Home Page is loading</span>
+        </div>
+
+        <!-- 3. Home / landing page -->
+        <section class="panel-view active" data-panel-view="home">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Live event ads</p>
+              <h2>Available tickets</h2>
+            </div>
+            <span class="badge" id="landingEventCount">0 live</span>
+          </div>
+
+          <section class="search-panel" aria-label="Search live events">
+            <label class="event-search">
+              <span>Search event</span>
+              <input id="homeSearch" type="search" placeholder="Search by event, venue, category, or organization">
+            </label>
+            <p>Find concerts, workshops, conferences, and charity events faster.</p>
+          </section>
+
+          <section class="event-slider" id="eventSlider" aria-label="Featured event slideshow"></section>
+          <section class="landing-grid" id="landingEventGrid"></section>
+        </section>
+
+        <!-- 4. Admin panel -->
+        <section class="panel-view" data-panel-view="admin">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Admin panel</p>
+              <h2>Platform control center</h2>
+            </div>
+            <span class="badge" id="pendingOrgCount">0 pending</span>
+          </div>
+
+          <section class="summary-grid">
+            <article class="metric-card">
+              <span>Tickets sold</span>
+              <strong id="metricTickets">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Gross sales</span>
+              <strong id="metricGross">Tk 0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Organization share</span>
+              <strong id="metricOrgShare">Tk 0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Tickolas fee</span>
+              <strong id="metricFee">Tk 0</strong>
+            </article>
+          </section>
+
+          <section class="workspace-section">
+            <div class="section-title">
+              <h3>Organizations</h3>
+              <span>Private plan: Tk 10 per Tk 1000</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Organization</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="adminOrgRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="workspace-section">
+            <div class="section-title">
+              <h3>Event review</h3>
+              <span>Approve organization-created events before buyers see them</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Organization</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="adminEventRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="workspace-section">
+            <div class="section-title">
+              <h3>Event sales report</h3>
+              <span id="eventSalesSummary">0 tickets | Tk 0 gross</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Organization</th>
+                    <th>Tickets sold</th>
+                    <th>Ticket price</th>
+                    <th>Gross</th>
+                    <th>Tickolas fee</th>
+                    <th>Organization payout</th>
+                  </tr>
+                </thead>
+                <tbody id="eventSalesRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="workspace-section">
+            <div class="section-title">
+              <h3>Organization settlement</h3>
+              <span>Pay organizations after reviewing their event-wise sales</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Organization</th>
+                    <th>Gross</th>
+                    <th>Tickolas fee</th>
+                    <th>Pending payout</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="settlementRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <!-- 5. Seller panel -->
+        <section class="panel-view" data-panel-view="seller">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Organization panel</p>
+              <h2>Create and manage your events</h2>
+            </div>
+            <div class="panel-actions">
+              <span class="badge">Seller workspace</span>
+              <a class="whatsapp-support" href="https://wa.me/8801766811996" target="_blank" rel="noreferrer" aria-label="Contact Tickolas support on WhatsApp">WhatsApp Support</a>
+            </div>
+          </div>
+
+          <section class="workspace-section two-column">
+            <article class="seller-agreement" id="sellerAgreement">
+              <div class="agreement-graphic" aria-hidden="true">
+                <div class="agreement-ticket">
+                  <img src="assets/tickolas-logo.png" alt="">
+                  <i></i>
+                </div>
+                <div class="agreement-ring"></div>
+                <div class="agreement-spark spark-one"></div>
+                <div class="agreement-spark spark-two"></div>
+              </div>
+              <div class="agreement-copy">
+                <p class="eyebrow">Seller agreement</p>
+                <h3>Tickolas Platform Agreement</h3>
+                <p>By creating an event on Tickolas and offering tickets for sale through our platform, you agree to the following terms:</p>
+                <ol>
+                  <li>Tickolas will charge a platform fee of 10 Taka per 1000 Taka transaction (1% service fee) on every successful ticket sale.</li>
+                  <li>This fee will be automatically deducted from each completed transaction.</li>
+                  <li>You are fully responsible for providing accurate event details, including date, venue, pricing, and refund policy.</li>
+                  <li>Tickolas will not be liable for any loss, damage, or disputes arising from incorrect or misleading event information provided by the seller.</li>
+                  <li>Tickolas reserves the right to review, approve, or suspend any event at its discretion to ensure platform safety and compliance.</li>
+                </ol>
+                <p>By clicking <strong>Agree &amp; Continue</strong>, you acknowledge that you have read, understood, and accepted these terms.</p>
+                <button class="primary-button agreement-button" id="agreeSellerTerms" type="button">Agree &amp; Continue</button>
+              </div>
+            </article>
+
+            <form class="event-form" id="eventForm" hidden>
+              <div class="section-title">
+                <h3 id="eventFormTitle">Create event</h3>
+                <span id="eventFormHint">New events go to review first</span>
+              </div>
+              <label>
+                <span>Event title</span>
+                <input name="title" type="text" required placeholder="Example: Dhaka Startup Summit">
+              </label>
+              <label>
+                <span>Category</span>
+                <select name="category" required>
+                  <option>Conference</option>
+                  <option>Concert</option>
+                  <option>Workshop</option>
+                  <option>Charity</option>
+                </select>
+              </label>
+              <label>
+                <span>Venue</span>
+                <input name="venue" type="text" required placeholder="Venue name">
+              </label>
+              <label>
+                <span>Event details</span>
+                <textarea name="details" rows="5" maxlength="900" placeholder="Write schedule, guest info, food plan, entry rules, or anything buyers should know"></textarea>
+              </label>
+              <label>
+                <span>Thumbnail image URL</span>
+                <input name="imageUrl" type="url" placeholder="https://example.com/event-photo.jpg">
+              </label>
+              <label>
+                <span>Browse thumbnail photo</span>
+                <input name="imageFile" type="file" accept="image/*">
+              </label>
+              <div class="form-row">
+                <label>
+                  <span>Date</span>
+                  <input name="date" type="text" inputmode="numeric" required placeholder="dd/mm/yyyy" pattern="(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}">
+                </label>
+                <label>
+                  <span>Price</span>
+                  <input name="price" type="number" min="1" required placeholder="1000">
+                </label>
+              </div>
+              <label>
+                <span>Capacity</span>
+                <input name="capacity" type="number" min="1" required placeholder="500">
+              </label>
+              <div class="form-actions">
+                <button class="primary-button" id="eventSubmitButton" type="submit">Publish event</button>
+                <button class="ghost-button" id="cancelEventEdit" type="button" hidden>Cancel edit</button>
+              </div>
+            </form>
+
+            <div class="event-list" id="sellerEventList">
+              <div class="section-title">
+                <h3>My events</h3>
+                <span id="sellerEventCount">0 events</span>
+              </div>
+              <div id="sellerEventRows"></div>
+            </div>
+
+            <section class="service-scanner" id="serviceScanner" hidden>
+              <div class="section-title">
+                <div>
+                  <h3>Ticket service scanner</h3>
+                  <span>Scan each ticket once for entry, food, gifts, merch, or any custom service</span>
+                </div>
+              </div>
+              <div class="scanner-grid">
+                <div class="scanner-controls">
+                  <label>
+                    <span>Event</span>
+                    <select id="scannerEvent"></select>
+                  </label>
+                  <fieldset>
+                    <legend>Scan module</legend>
+                    <div class="service-toggle-grid" id="serviceToggleGrid"></div>
+                  </fieldset>
+                  <label>
+                    <span>QR link or Ticket ID</span>
+                    <input id="scannerCode" type="text" placeholder="Paste scanned QR link or ticket ID">
+                  </label>
+                  <div class="scanner-actions">
+                    <button class="table-button" id="scanManualButton" type="button">Verify scan</button>
+                    <button class="table-button secondary" id="startScannerButton" type="button">Start camera</button>
+                    <button class="table-button secondary" id="stopScannerButton" type="button" hidden>Stop camera</button>
+                  </div>
+                </div>
+                <div class="scanner-stage">
+                  <video id="scannerVideo" playsinline muted hidden></video>
+                  <div class="scanner-placeholder" id="scannerPlaceholder">
+                    <strong>QR scanner</strong>
+                    <span>Start camera or paste the QR link manually.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="scanner-result" id="scannerResult" data-tone="idle">
+                Select a module and scan a ticket QR.
+              </div>
+            </section>
+          </section>
+        </section>
+
+        <!-- 6. Buyer panel and checkout -->
+        <section class="panel-view" data-panel-view="buyer">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Buyer panel</p>
+              <h2>Browse and buy tickets</h2>
+            </div>
+            <div class="buyer-heading-tools">
+              <a class="whatsapp-support" href="https://wa.me/8801766811996" target="_blank" rel="noreferrer" aria-label="Contact Tickolas support on WhatsApp">WhatsApp Support</a>
+              <div class="filter-row" aria-label="Event filters">
+                <button class="filter-pill active" type="button" data-filter="All">All</button>
+                <button class="filter-pill" type="button" data-filter="Conference">Conference</button>
+                <button class="filter-pill" type="button" data-filter="Concert">Concert</button>
+                <button class="filter-pill" type="button" data-filter="Workshop">Workshop</button>
+                <button class="filter-pill" type="button" data-filter="Charity">Charity</button>
+              </div>
+            </div>
+          </div>
+
+          <section class="search-panel compact" aria-label="Search buyer events">
+            <label class="event-search">
+              <span>Search event</span>
+              <input id="buyerSearch" type="search" placeholder="Search by event, venue, category, or organization">
+            </label>
+            <p>Type a keyword to narrow the event list instantly.</p>
+          </section>
+
+          <div class="buyer-layout">
+            <section class="event-grid" id="buyerEventGrid"></section>
+
+            <div class="checkout-backdrop" id="checkoutBackdrop" hidden></div>
+            <aside class="checkout-panel event-preview-modal" id="eventPreviewPanel" hidden>
+              <div class="section-title">
+                <h3>Event details</h3>
+                <span>Review before checkout</span>
+                <button class="modal-close" id="closeEventPreview" type="button" aria-label="Close event details">x</button>
+              </div>
+              <div id="eventPreviewBody"></div>
+            </aside>
+            <aside class="checkout-panel checkout-modal" id="checkoutPanel" hidden>
+              <div class="section-title">
+                <h3>Checkout</h3>
+                <span id="selectedEventStatus">Select event</span>
+                <button class="modal-close" id="closeCheckout" type="button" aria-label="Close checkout">x</button>
+              </div>
+
+              <form id="checkoutForm">
+                <label>
+                  <span>Event</span>
+                  <select id="checkoutEvent" required></select>
+                </label>
+                <label>
+                  <span>Name</span>
+                  <input id="buyerName" type="text" required placeholder="Buyer name">
+                </label>
+                <label>
+                  <span>Account email</span>
+                  <input id="buyerEmail" type="email" required readonly placeholder="Login email will appear here">
+                </label>
+                <label>
+                  <span>Quantity</span>
+                  <input id="ticketQuantity" type="number" min="1" value="1" required>
+                </label>
+                <label>
+                  <span>Voucher name</span>
+                  <input id="voucherCode" type="text" placeholder="Optional seller voucher">
+                </label>
+                <p class="voucher-message" id="voucherMessage"></p>
+
+                <fieldset class="payment-box">
+                  <legend>Payment method</legend>
+                  <label class="payment-option payment-bkash">
+                    <input type="radio" name="paymentMethod" value="bKash" checked>
+                    <span class="payment-logo"><img src="assets/bkash-logo.png" alt="bKash"></span>
+                    <span>bKash</span>
+                  </label>
+                  <label class="payment-option payment-nagad">
+                    <input type="radio" name="paymentMethod" value="Nagad">
+                    <span class="payment-logo"><img src="assets/nagad-logo.png" alt="Nagad"></span>
+                    <span>Nagad</span>
+                  </label>
+                  <label class="payment-option payment-rocket">
+                    <input type="radio" name="paymentMethod" value="Rocket">
+                    <span class="payment-logo"><img src="assets/rocket-logo.png" alt="Rocket"></span>
+                    <span>Rocket</span>
+                  </label>
+                </fieldset>
+
+                <dl class="checkout-total">
+                  <div>
+                    <dt>Total</dt>
+                    <dd id="checkoutGross">Tk 0</dd>
+                  </div>
+                  <div>
+                    <dt>Voucher discount</dt>
+                    <dd id="checkoutDiscount">Tk 0</dd>
+                  </div>
+                  <div>
+                    <dt>Pay with</dt>
+                    <dd id="checkoutPaymentMethod">bKash</dd>
+                  </div>
+                </dl>
+
+                <button class="primary-button" type="submit">Buy ticket</button>
+              </form>
+              <div id="receiptOutput" class="receipt-output" aria-live="polite"></div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- 7. Event details modal -->
+    <div class="event-details-modal" id="eventDetailsModal" hidden>
+      <div class="auth-backdrop" data-close-event-details></div>
+      <section class="auth-dialog event-details-dialog" role="dialog" aria-modal="true" aria-labelledby="eventDetailsTitle">
+        <button class="close-button" id="closeEventDetails" type="button" aria-label="Close event details">x</button>
+        <div id="eventDetailsBody"></div>
+      </section>
+    </div>
+
+    <!-- 8. Authentication modal -->
+    <div class="auth-modal" id="authModal" hidden>
+      <div class="auth-backdrop" data-close-auth></div>
+      <section class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <button class="close-button" id="closeAuth" type="button" aria-label="Close login">x</button>
+
+        <div class="auth-choice" id="authChoice">
+          <p class="eyebrow">Choose account type</p>
+          <h2 id="authTitle">How do you want to continue?</h2>
+          <div class="auth-choice-grid">
+            <button class="auth-choice-card" type="button" data-auth-role="buyer">
+              <img class="auth-choice-icon" src="assets/buy-ticket-icon.png" alt="Buy Ticket">
+              <strong>Buy Ticket</strong>
+              <small>Browse events and book tickets</small>
+            </button>
+            <button class="auth-choice-card" type="button" data-auth-role="seller">
+              <img class="auth-choice-icon" src="assets/sell-ticket-icon.png" alt="Sell Ticket">
+              <strong>Sell Ticket</strong>
+              <small>Create events for admin review</small>
+            </button>
+          </div>
+        </div>
+
+        <form class="auth-form" id="authForm" hidden>
+          <p class="eyebrow" id="authRoleLabel">Buyer access</p>
+          <h2 id="authFormTitle">Login</h2>
+          <label>
+            <span>Gmail or mobile number</span>
+            <input id="authIdentifier" type="text" required placeholder="name@gmail.com or 01XXXXXXXXX">
+          </label>
+          <label>
+            <span>Password</span>
+            <span class="password-field">
+              <input id="authPassword" type="password" required placeholder="Enter password">
+              <button class="password-toggle" type="button" data-toggle-password data-target="authPassword" aria-label="Show password" aria-pressed="false">
+                <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.25 12s3.5-6.25 9.75-6.25S21.75 12 21.75 12 18.25 18.25 12 18.25 2.25 12 2.25 12Z"></path>
+                  <path d="M12 14.75A2.75 2.75 0 1 0 12 9.25a2.75 2.75 0 0 0 0 5.5Z"></path>
+                </svg>
+                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 3l18 18"></path>
+                  <path d="M9.6 5.9A8.6 8.6 0 0 1 12 5.55c6.25 0 9.75 6.45 9.75 6.45a17.2 17.2 0 0 1-2.65 3.3"></path>
+                  <path d="M14.12 14.12A2.95 2.95 0 0 1 9.88 9.88"></path>
+                  <path d="M6.1 7.25A17.5 17.5 0 0 0 2.25 12s3.5 6.45 9.75 6.45a8.8 8.8 0 0 0 4.05-.98"></path>
+                </svg>
+              </button>
+            </span>
+          </label>
+          <label id="authConfirmWrap" hidden>
+            <span>Confirm password</span>
+            <span class="password-field">
+              <input id="authConfirmPassword" type="password" placeholder="Confirm password">
+              <button class="password-toggle" type="button" data-toggle-password data-target="authConfirmPassword" aria-label="Show confirm password" aria-pressed="false">
+                <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.25 12s3.5-6.25 9.75-6.25S21.75 12 21.75 12 18.25 18.25 12 18.25 2.25 12 2.25 12Z"></path>
+                  <path d="M12 14.75A2.75 2.75 0 1 0 12 9.25a2.75 2.75 0 0 0 0 5.5Z"></path>
+                </svg>
+                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 3l18 18"></path>
+                  <path d="M9.6 5.9A8.6 8.6 0 0 1 12 5.55c6.25 0 9.75 6.45 9.75 6.45a17.2 17.2 0 0 1-2.65 3.3"></path>
+                  <path d="M14.12 14.12A2.95 2.95 0 0 1 9.88 9.88"></path>
+                  <path d="M6.1 7.25A17.5 17.5 0 0 0 2.25 12s3.5 6.45 9.75 6.45a8.8 8.8 0 0 0 4.05-.98"></path>
+                </svg>
+              </button>
+            </span>
+          </label>
+          <p class="auth-message" id="authMessage" hidden></p>
+          <button class="primary-button" id="authSubmit" type="submit">Login</button>
+          <button class="google-auth-button" id="authGoogle" type="button">
+            <svg class="google-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+              <path fill="#EA4335" d="M24 9.5c3.4 0 6.4 1.2 8.8 3.4l6.5-6.5C35.4 2.8 30.1.6 24 .6 14.8.6 6.9 5.8 3 13.4l7.7 6C12.5 13.6 17.8 9.5 24 9.5Z"/>
+              <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.6H24v8.7h12.7c-.6 2.8-2.2 5.2-4.7 6.8l7.3 5.7c4.3-4 7.2-9.9 7.2-16.6Z"/>
+              <path fill="#FBBC05" d="M10.7 28.6A14.4 14.4 0 0 1 10 24c0-1.6.3-3.1.7-4.6l-7.7-6A23.4 23.4 0 0 0 .5 24c0 3.8.9 7.4 2.5 10.6l7.7-6Z"/>
+              <path fill="#34A853" d="M24 47.4c6.1 0 11.3-2 15.1-5.5l-7.3-5.7c-2 1.4-4.6 2.2-7.8 2.2-6.2 0-11.5-4.1-13.3-9.8l-7.7 6c3.9 7.6 11.8 12.8 21 12.8Z"/>
+            </svg>
+            Continue with Google
+          </button>
+          <p class="auth-switch-text">
+            <span id="authSwitchPrompt">New here?</span>
+            <button id="authSwitch" type="button">Sign up</button>
+          </p>
+        </form>
+      </section>
+    </div>
+
+    <!-- 9. Toast and scripts -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="src/vendor/qrcode-generator.js"></script>
+    <script src="node_modules/jsqr/dist/jsQR.js"></script>
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>

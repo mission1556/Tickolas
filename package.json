@@ -1,0 +1,15 @@
+{
+  "name": "tickolas-fresh-firebase",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tickolas e-ticketing frontend using Firebase Firestore as the backend.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check src/app.js && node --check src/firebase.js && node --check server.js && node --check api/index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "jsqr": "^1.4.0",
+    "qrcode-generator": "^1.4.4"
+  }
+}

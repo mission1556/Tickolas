@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-label="Tickolas event ticketing banner">
+  <rect width="1200" height="600" fill="#10282b"/>
+  <path d="M0 430 C210 360 330 500 530 430 C710 365 790 190 1200 260 L1200 600 L0 600 Z" fill="#159a8c"/>
+  <path d="M0 520 C220 455 420 610 680 500 C880 416 1000 470 1200 402 L1200 600 L0 600 Z" fill="#e66f51" opacity=".86"/>
+  <g transform="translate(245 150)">
+    <rect x="0" y="0" width="710" height="260" rx="28" fill="#ffffff" opacity=".94"/>
+    <circle cx="70" cy="130" r="34" fill="#eef7f4"/>
+    <circle cx="640" cy="130" r="34" fill="#eef7f4"/>
+    <path d="M105 0v260M605 0v260" stroke="#d8e6e2" stroke-width="8" stroke-dasharray="18 18"/>
+    <text x="150" y="110" font-family="Arial, sans-serif" font-size="46" font-weight="800" fill="#10282b">Tickolas</text>
+    <text x="150" y="164" font-family="Arial, sans-serif" font-size="26" fill="#607476">Event ticket confirmed</text>
+    <rect x="410" y="82" width="142" height="96" rx="12" fill="#159a8c"/>
+    <path d="M430 102h102v10H430zm0 25h102v10H430zm0 25h72v10h-72z" fill="#fff"/>
+  </g>
+</svg>

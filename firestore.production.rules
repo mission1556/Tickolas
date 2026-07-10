@@ -1,0 +1,136 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function role() {
+      return signedIn() && exists(userDoc()) ? get(userDoc()).data.role : "";
+    }
+
+    function isAdmin() {
+      return role() == "admin";
+    }
+
+    function isSeller() {
+      return role() == "seller";
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function eventPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId);
+    }
+
+    function publicEvent() {
+      return resource.data.status == "live";
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId)
+        && request.resource.data.role in ["buyer", "seller"]
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt is timestamp;
+      allow update: if isAdmin()
+        || (
+          isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "phone", "updatedAt"])
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.createdAt == resource.data.createdAt
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /organizations/{orgId} {
+      allow read: if resource.data.approved == true || isAdmin() || resource.data.ownerId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.approved == false
+        && request.resource.data.status == "review"
+        && request.resource.data.name is string
+        && request.resource.data.type is string
+        && request.resource.data.createdAt is timestamp;
+      allow update, delete: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read: if publicEvent() || isAdmin() || resource.data.createdBy == request.auth.uid;
+      allow create: if isSeller()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.sellerEmail == request.auth.token.email
+        && request.resource.data.status == "review"
+        && request.resource.data.sold == 0
+        && request.resource.data.capacity is int
+        && request.resource.data.capacity > 0
+        && request.resource.data.price is int
+        && request.resource.data.price > 0
+        && request.resource.data.title is string
+        && request.resource.data.venue is string
+        && request.resource.data.category is string
+        && request.resource.data.date is string
+        && request.resource.data.createdAt is timestamp;
+      allow update: if isAdmin()
+        || (
+          isSeller()
+          && resource.data.createdBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "orgId",
+            "sellerEmail",
+            "title",
+            "category",
+            "venue",
+            "imageUrl",
+            "date",
+            "price",
+            "capacity",
+            "createdBy",
+            "status",
+            "updatedAt"
+          ])
+          && request.resource.data.status == "review"
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.sellerEmail == resource.data.sellerEmail
+          && request.resource.data.capacity is int
+          && request.resource.data.capacity >= resource.data.sold
+          && request.resource.data.price is int
+          && request.resource.data.price > 0
+        );
+      allow delete: if isAdmin()
+        || (
+          isSeller()
+          && resource.data.createdBy == request.auth.uid
+          && resource.data.status in ["review", "rejected"]
+        );
+    }
+
+    match /paymentIntents/{intentId} {
+      allow read: if isAdmin() || isOwner(resource.data.userId);
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.eventId is string
+        && exists(eventPath(request.resource.data.eventId))
+        && get(eventPath(request.resource.data.eventId)).data.status == "live"
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity > 0
+        && request.resource.data.status == "pending"
+        && request.resource.data.createdAt is timestamp;
+      allow update, delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdmin() || isOwner(resource.data.userId);
+      // Confirmed orders and event sold counts must be written by trusted backend/Admin only.
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

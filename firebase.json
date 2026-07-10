@@ -1,0 +1,19 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "**/*.bat",
+      "**/*.cmd",
+      "server.log",
+      ".env",
+      ".env.example",
+      "assets/hero-bg.before-compress.mp4",
+      "assets/hero-bg.original.mp4",
+      "firestore.rules",
+      "firestore.production.rules"
+    ]
+  }
+}
