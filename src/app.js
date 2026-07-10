@@ -54,6 +54,7 @@ const state = {
   currentProfile: null,
   lastTicket: null,
   lastVerificationHash: "",
+  modalHistoryOpen: false,
   organizations: [],
   events: [],
   orders: []
@@ -75,6 +76,7 @@ const pageNames = {
 };
 
 let pageLoaderTimer = 0;
+let suppressModalPop = false;
 
 const accessLabels = {
   admin: "Admin",
@@ -236,6 +238,44 @@ function hidePageLoader() {
   if (!elements.pageLoader) return;
   window.clearTimeout(pageLoaderTimer);
   elements.pageLoader.hidden = true;
+}
+
+function isAnyModalOpen() {
+  return !elements.authModal.hidden
+    || !elements.eventDetailsModal.hidden
+    || !elements.eventPreviewPanel.hidden
+    || !elements.checkoutPanel.hidden;
+}
+
+function syncModalState() {
+  const hasModal = isAnyModalOpen();
+  document.body.classList.toggle("modal-open", hasModal);
+  if (!hasModal && state.modalHistoryOpen && history.state?.tickolasModal) {
+    suppressModalPop = true;
+    state.modalHistoryOpen = false;
+    history.back();
+  } else if (!hasModal) {
+    state.modalHistoryOpen = false;
+  }
+}
+
+function pushModalHistory() {
+  if (state.modalHistoryOpen || history.state?.tickolasModal) {
+    state.modalHistoryOpen = true;
+    return;
+  }
+  history.pushState({ tickolasModal: true }, "", window.location.href);
+  state.modalHistoryOpen = true;
+}
+
+function closeAllModalsFromHistory() {
+  elements.authModal.hidden = true;
+  elements.eventDetailsModal.hidden = true;
+  elements.eventPreviewPanel.hidden = true;
+  elements.checkoutPanel.hidden = true;
+  elements.checkoutBackdrop.hidden = true;
+  state.modalHistoryOpen = false;
+  syncModalState();
 }
 
 function waitForNextPaint() {
@@ -1787,12 +1827,13 @@ function openEventDetailsModal(eventId) {
     </dl>
   `;
   elements.eventDetailsModal.hidden = false;
-  document.body.classList.add("modal-open");
+  pushModalHistory();
+  syncModalState();
 }
 
 function closeEventDetailsModal() {
   elements.eventDetailsModal.hidden = true;
-  document.body.classList.remove("modal-open");
+  syncModalState();
 }
 
 function openAuthChoice() {
@@ -1804,14 +1845,16 @@ function openAuthChoice() {
   elements.authChoice.hidden = false;
   elements.authForm.hidden = true;
   elements.authModal.hidden = false;
-  document.body.classList.add("modal-open");
+  pushModalHistory();
+  syncModalState();
 }
 
 function openAuthForm(role) {
   showPageLoader("login", 560);
   state.authRole = role;
   elements.authModal.hidden = false;
-  document.body.classList.add("modal-open");
+  pushModalHistory();
+  syncModalState();
   elements.authChoice.hidden = true;
   elements.authForm.hidden = false;
   elements.authRoleLabel.textContent = role === "admin" ? "Admin access" : role === "buyer" ? "Buyer access" : "Seller access";
@@ -1836,7 +1879,7 @@ function closeAuthModal(clearPendingBuyerEvent = true) {
     state.pendingBuyerEventId = "";
   }
   elements.authModal.hidden = true;
-  document.body.classList.remove("modal-open");
+  syncModalState();
 }
 
 function clearReceiptOutput() {
@@ -1853,14 +1896,15 @@ function openCheckoutModal({ keepReceipt = false } = {}) {
   elements.buyerEmail.value = loggedInEmail();
   elements.checkoutPanel.hidden = false;
   elements.checkoutBackdrop.hidden = false;
-  document.body.classList.add("modal-open");
+  pushModalHistory();
+  syncModalState();
   elements.buyerName.focus();
 }
 
 function closeCheckoutModal() {
   elements.checkoutPanel.hidden = true;
   elements.checkoutBackdrop.hidden = true;
-  document.body.classList.remove("modal-open");
+  syncModalState();
 }
 
 function openEventPreviewModal(eventId = state.selectedEventId) {
@@ -1900,15 +1944,16 @@ function openEventPreviewModal(eventId = state.selectedEventId) {
   elements.checkoutPanel.hidden = true;
   elements.eventPreviewPanel.hidden = false;
   elements.checkoutBackdrop.hidden = false;
-  document.body.classList.add("modal-open");
+  pushModalHistory();
+  syncModalState();
 }
 
 function closeEventPreviewModal(hideBackdrop = true) {
   elements.eventPreviewPanel.hidden = true;
   if (hideBackdrop && elements.checkoutPanel.hidden) {
     elements.checkoutBackdrop.hidden = true;
-    document.body.classList.remove("modal-open");
   }
+  syncModalState();
 }
 
 function continuePendingBuyerEvent() {
@@ -2617,6 +2662,17 @@ elements.receiptOutput.addEventListener("click", async (event) => {
   }
 });
 
+window.addEventListener("popstate", () => {
+  if (suppressModalPop) {
+    suppressModalPop = false;
+    return;
+  }
+  if (state.modalHistoryOpen || isAnyModalOpen()) {
+    closeAllModalsFromHistory();
+    return;
+  }
+  handleTicketVerificationHash();
+});
 window.addEventListener("hashchange", handleTicketVerificationHash);
 window.setTimeout(handleTicketVerificationHash, 300);
 

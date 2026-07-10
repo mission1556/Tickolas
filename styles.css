@@ -67,6 +67,7 @@
 
 body {
   margin: 0;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 16% 10%, rgba(124, 58, 237, 0.14), transparent 32%),
     radial-gradient(circle at 86% 12%, rgba(255, 138, 61, 0.12), transparent 34%),
@@ -1912,13 +1913,21 @@ textarea {
 :root:not([data-theme="dark"]) .payment-box legend,
 :root:not([data-theme="dark"]) .payment-box label,
 :root:not([data-theme="dark"]) .checkout-modal label {
-  color: #4b5563;
+  color: #334155;
 }
 
 :root:not([data-theme="dark"]) .scanner-placeholder strong,
 :root:not([data-theme="dark"]) .event-preview-details strong,
 :root:not([data-theme="dark"]) .event-preview-facts dd {
   color: #0f172a;
+}
+
+:root:not([data-theme="dark"]) .scanner-controls,
+:root:not([data-theme="dark"]) .scanner-controls label,
+:root:not([data-theme="dark"]) .scanner-result,
+:root:not([data-theme="dark"]) .voucher-list small,
+:root:not([data-theme="dark"]) .checkout-summary {
+  color: #334155;
 }
 
 .event-preview-confirm {
@@ -2534,6 +2543,12 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   .main-content {
     padding: 18px;
   }
@@ -2620,6 +2635,22 @@ textarea {
     width: auto;
   }
 
+  .checkout-backdrop {
+    overflow: hidden;
+  }
+
+  .checkout-modal > *,
+  .event-preview-modal > *,
+  .service-scanner,
+  .scanner-grid,
+  .scanner-controls,
+  .scanner-stage,
+  .payment-box,
+  .checkout-summary {
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .event-preview-hero {
     min-height: 220px;
   }
@@ -2630,6 +2661,27 @@ textarea {
 
   .service-toggle-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .service-toggle {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .scanner-stage {
+    min-height: 220px;
+    width: 100%;
+  }
+
+  .scanner-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .scanner-actions .table-button,
+  .scanner-actions .ghost-button {
+    min-width: 0;
+    width: 100%;
   }
 
   .slider-card {
