@@ -1772,6 +1772,7 @@ textarea {
   -webkit-overflow-scrolling: touch;
   left: 50%;
   max-height: calc(100vh - 128px);
+  max-height: calc(100dvh - 128px);
   max-width: 680px;
   overscroll-behavior: contain;
   overflow: auto;
@@ -1786,6 +1787,7 @@ textarea {
   -webkit-overflow-scrolling: touch;
   left: 50%;
   max-height: calc(100vh - 120px);
+  max-height: calc(100dvh - 120px);
   max-width: 920px;
   overscroll-behavior: contain;
   overflow: auto;
@@ -1893,6 +1895,26 @@ textarea {
   color: #111827;
 }
 
+:root:not([data-theme="dark"]) .service-toggle.active {
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.22), rgba(217, 70, 239, 0.18));
+  color: #111827;
+}
+
+:root:not([data-theme="dark"]) .scanner-stage {
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.18), rgba(255, 255, 255, 0.95));
+  color: #111827;
+}
+
+:root:not([data-theme="dark"]) .scanner-placeholder {
+  color: #475569;
+}
+
+:root:not([data-theme="dark"]) .payment-box legend,
+:root:not([data-theme="dark"]) .payment-box label,
+:root:not([data-theme="dark"]) .checkout-modal label {
+  color: #4b5563;
+}
+
 :root:not([data-theme="dark"]) .scanner-placeholder strong,
 :root:not([data-theme="dark"]) .event-preview-details strong,
 :root:not([data-theme="dark"]) .event-preview-facts dd {
@@ -1919,6 +1941,13 @@ textarea {
   justify-content: center;
   padding: 0;
   width: 34px;
+}
+
+.checkout-modal .modal-close,
+.event-preview-modal .modal-close {
+  position: sticky;
+  top: 0;
+  z-index: 4;
 }
 
 .event-meta {
@@ -2579,10 +2608,12 @@ textarea {
   .checkout-modal,
   .event-preview-modal {
     bottom: 12px;
+    height: calc(100dvh - 24px);
     left: 12px;
-    max-height: none;
+    max-height: calc(100dvh - 24px);
     max-width: none;
     overflow-y: auto;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
     right: 12px;
     top: 12px;
     transform: none;

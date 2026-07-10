@@ -1839,8 +1839,17 @@ function closeAuthModal(clearPendingBuyerEvent = true) {
   document.body.classList.remove("modal-open");
 }
 
-function openCheckoutModal() {
+function clearReceiptOutput() {
+  state.lastTicket = null;
+  elements.receiptOutput.innerHTML = "";
+  elements.receiptOutput.classList.remove("show");
+}
+
+function openCheckoutModal({ keepReceipt = false } = {}) {
   closeEventPreviewModal(false);
+  if (!keepReceipt) {
+    clearReceiptOutput();
+  }
   elements.buyerEmail.value = loggedInEmail();
   elements.checkoutPanel.hidden = false;
   elements.checkoutBackdrop.hidden = false;
@@ -1861,6 +1870,7 @@ function openEventPreviewModal(eventId = state.selectedEventId) {
     return;
   }
 
+  clearReceiptOutput();
   state.selectedEventId = event.id;
   const org = getOrg(event.orgId) || { name: event.sellerEmail || "Organization" };
   const remaining = remainingTickets(event);
@@ -2531,6 +2541,7 @@ elements.eventSlider.addEventListener("click", (event) => {
 
 elements.checkoutEvent.addEventListener("change", (event) => {
   state.selectedEventId = event.target.value;
+  clearReceiptOutput();
   renderBuyer();
 });
 
@@ -2589,7 +2600,7 @@ elements.checkoutForm.addEventListener("submit", async (event) => {
       elements.receiptOutput.classList.add("show");
       showToast("Ticket purchased and saved to Firebase.");
       await loadData();
-      openCheckoutModal();
+      openCheckoutModal({ keepReceipt: true });
     });
   } catch (error) {
     showToast(error.message || "Ticket purchase failed.");
