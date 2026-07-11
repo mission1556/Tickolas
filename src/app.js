@@ -23,6 +23,7 @@ import {
   updateEvent,
   updateEventServices,
   updateEventVouchers,
+  uploadEventThumbnail,
   updateUserProfileInfo,
   watchAuthState
 } from "./firebase.js";
@@ -402,17 +403,35 @@ function resizeImageFile(file) {
         canvas.height = Math.round(image.height * scale);
         const context = canvas.getContext("2d");
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        let quality = 0.7;
-        let dataUrl = canvas.toDataURL("image/jpeg", quality);
-        while (dataUrl.length > 650000 && quality > 0.42) {
-          quality -= 0.08;
-          dataUrl = canvas.toDataURL("image/jpeg", quality);
-        }
-        if (dataUrl.length > 650000) {
-          reject(new Error("Image is too large. Please choose a smaller photo."));
-          return;
-        }
-        resolve(dataUrl);
+        let quality = 0.72;
+        canvas.toBlob((initialBlob) => {
+          if (!initialBlob) {
+            reject(new Error("Could not process this image."));
+            return;
+          }
+
+          if (initialBlob.size <= 450000 || quality <= 0.42) {
+            resolve(initialBlob);
+            return;
+          }
+
+          const tryCompress = () => {
+            quality -= 0.08;
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                reject(new Error("Could not process this image."));
+                return;
+              }
+              if (blob.size <= 450000 || quality <= 0.42) {
+                resolve(blob);
+                return;
+              }
+              tryCompress();
+            }, "image/jpeg", quality);
+          };
+
+          tryCompress();
+        }, "image/jpeg", quality);
       };
       image.onerror = () => reject(new Error("Could not read this image."));
       image.src = reader.result;
@@ -422,10 +441,11 @@ function resizeImageFile(file) {
   });
 }
 
-async function eventImageFromForm(formData) {
+async function eventImageFromForm(formData, eventId) {
   const file = formData.get("imageFile");
   if (file && file.size > 0) {
-    return resizeImageFile(file);
+    const resizedImage = await resizeImageFile(file);
+    return uploadEventThumbnail(resizedImage, eventId);
   }
 
   const url = cleanImageUrl(formData.get("imageUrl"));
@@ -442,7 +462,13 @@ function dateLabel(value) {
 
 function statusLabel(value) {
   const status = String(value || "").trim();
-  return status === "review" ? "In review" : status;
+  const labels = {
+    review: "In review",
+    live: "Live",
+    paused: "Hidden",
+    rejected: "Rejected"
+  };
+  return labels[status] || status;
 }
 
 function adminEventStatusMarkup(event) {
@@ -1323,55 +1349,13 @@ function renderMetrics() {
 }
 
 function renderAdmin() {
-  const pendingOrgs = state.organizations.filter((org) => !org.approved && org.status !== "rejected").length;
-  const pendingEvents = state.events.filter((event) => event.status === "review").length;
-  const pending = pendingOrgs + pendingEvents;
+  const actionQueueEvents = state.events.filter((event) => ["review", "paused", "rejected"].includes(event.status || "review"));
+  const pending = actionQueueEvents.length;
   elements.pendingOrgCount.textContent = `${pending} pending`;
 
-  elements.adminOrgRows.innerHTML = state.organizations.length
-    ? state.organizations
-        .map((org) => {
-          const status = org.approved ? "approved" : org.status === "rejected" ? "rejected" : "pending";
-          const action = org.approved
-            ? `
-              <div class="button-row">
-                <button class="table-button danger" type="button" data-action="reject-org" data-org-id="${escapeHtml(org.id)}">Reject</button>
-              </div>
-            `
-            : status === "rejected"
-              ? `
-                <div class="button-row">
-                  <button class="table-button" type="button" data-action="approve-org" data-org-id="${escapeHtml(org.id)}">Approve again</button>
-                  <button class="table-button danger" type="button" data-action="delete-org" data-org-id="${escapeHtml(org.id)}">Delete</button>
-                </div>
-              `
-              : `
-                <div class="button-row">
-                  <button class="table-button" type="button" data-action="approve-org" data-org-id="${escapeHtml(org.id)}">Approve</button>
-                  <button class="table-button danger" type="button" data-action="reject-org" data-org-id="${escapeHtml(org.id)}">Reject</button>
-                </div>
-              `;
-          return `
-            <tr>
-              <td><strong>${escapeHtml(org.name)}</strong></td>
-              <td>${escapeHtml(org.type)}</td>
-              <td><span class="status ${status}">${status}</span></td>
-              <td>${action}</td>
-            </tr>
-          `;
-        })
-        .join("")
-    : `
-      <tr>
-        <td colspan="4" class="muted-cell">No seller organization requests yet. New seller signups will appear here for approval.</td>
-      </tr>
-    `;
-
-  const managedEvents = state.events.filter((event) => ["review", "live", "paused", "rejected"].includes(event.status));
-  elements.adminEventRows.innerHTML = managedEvents.length
-    ? managedEvents
+  elements.adminOrgRows.innerHTML = actionQueueEvents.length
+    ? actionQueueEvents
         .map((event) => {
-          const org = { name: organizerName(event) };
           const action = event.status === "review"
             ? `
               <div class="button-row">
@@ -1379,21 +1363,39 @@ function renderAdmin() {
                 <button class="table-button danger" type="button" data-action="reject-event" data-event-id="${escapeHtml(event.id)}">Reject</button>
               </div>
             `
-            : event.status === "live"
-              ? `<button class="table-button secondary" type="button" data-action="pause-event" data-event-id="${escapeHtml(event.id)}">Hide</button>`
-              : event.status === "paused"
-                ? `
-                  <div class="button-row">
-                    <button class="table-button" type="button" data-action="approve-event" data-event-id="${escapeHtml(event.id)}">Approve again</button>
-                    <button class="table-button danger" type="button" data-action="delete-event" data-event-id="${escapeHtml(event.id)}">Delete</button>
-                  </div>
-                `
-                : `
-                  <div class="button-row">
-                    <button class="table-button" type="button" data-action="approve-event" data-event-id="${escapeHtml(event.id)}">Restore</button>
-                    <button class="table-button danger" type="button" data-action="delete-event" data-event-id="${escapeHtml(event.id)}">Delete</button>
-                  </div>
-                `;
+            : `
+              <div class="button-row">
+                <button class="table-button" type="button" data-action="approve-event" data-event-id="${escapeHtml(event.id)}">Re-approve</button>
+                <button class="table-button danger" type="button" data-action="delete-event" data-event-id="${escapeHtml(event.id)}">Delete</button>
+              </div>
+            `;
+
+          return `
+          <tr>
+            <td>
+              <strong>${escapeHtml(event.title)}</strong>
+              <small class="table-subtext">${escapeHtml(event.venue)} | ${dateLabel(event.date)}</small>
+            </td>
+            <td>${escapeHtml(organizerName(event))}</td>
+            <td>${escapeHtml(event.category)}</td>
+            <td>${adminEventStatusMarkup(event)}</td>
+            <td>${action}</td>
+          </tr>
+        `;
+        })
+        .join("")
+    : `
+      <tr>
+        <td colspan="5" class="muted-cell">No events waiting for approval or admin action.</td>
+      </tr>
+    `;
+
+  const managedEvents = state.events.filter((event) => event.status === "live");
+  elements.adminEventRows.innerHTML = managedEvents.length
+    ? managedEvents
+        .map((event) => {
+          const org = { name: organizerName(event) };
+          const action = `<button class="table-button secondary" type="button" data-action="pause-event" data-event-id="${escapeHtml(event.id)}">Hide</button>`;
           return `
             <tr>
               <td><strong>${escapeHtml(event.title)}</strong></td>
@@ -1407,7 +1409,7 @@ function renderAdmin() {
         .join("")
     : `
       <tr>
-        <td colspan="5" class="muted-cell">No events waiting for review.</td>
+        <td colspan="5" class="muted-cell">No live events yet.</td>
       </tr>
     `;
 
@@ -2594,6 +2596,7 @@ elements.eventForm.addEventListener("submit", async (event) => {
       return;
     }
 
+    const eventId = state.editingEventId || createSlugId("evt", title);
     const eventData = {
       orgId: `seller-${state.currentUser.uid}`,
       sellerEmail: state.currentUser.email || state.currentProfile?.email || "",
@@ -2602,7 +2605,7 @@ elements.eventForm.addEventListener("submit", async (event) => {
       category: String(formData.get("category")),
       venue: String(formData.get("venue")).trim(),
       details: String(formData.get("details") || "").trim().slice(0, 900),
-      imageUrl: await eventImageFromForm(formData),
+      imageUrl: await eventImageFromForm(formData, eventId),
       date,
       price: Number(formData.get("price")),
       capacity: Number(formData.get("capacity")),
@@ -2622,7 +2625,7 @@ elements.eventForm.addEventListener("submit", async (event) => {
       showToast("Event updated and sent for admin review.");
     } else {
       await createEvent({
-        id: createSlugId("evt", title),
+        id: eventId,
         ...eventData
       });
       showToast("Event submitted for admin review.");
@@ -2636,6 +2639,12 @@ elements.eventForm.addEventListener("submit", async (event) => {
 });
 
 elements.adminOrgRows.addEventListener("click", async (event) => {
+  const detailButton = event.target.closest("[data-action='view-event-details']");
+  if (detailButton) {
+    openEventDetailsModal(detailButton.dataset.eventId);
+    return;
+  }
+
   const button = event.target.closest("[data-action]");
   if (!button) return;
 
@@ -2653,6 +2662,21 @@ elements.adminOrgRows.addEventListener("click", async (event) => {
     if (button.dataset.action === "delete-org") {
       await deleteOrganization(button.dataset.orgId);
       showToast("Rejected organization and its events deleted permanently.");
+    }
+
+    if (button.dataset.action === "approve-event") {
+      await approveEvent(button.dataset.eventId);
+      showToast("Event approved and visible to buyers.");
+    }
+
+    if (button.dataset.action === "reject-event") {
+      await rejectEvent(button.dataset.eventId);
+      showToast("Event rejected and hidden from buyers.");
+    }
+
+    if (button.dataset.action === "delete-event") {
+      await deleteEvent(button.dataset.eventId);
+      showToast("Event deleted permanently.");
     }
 
     await loadData();

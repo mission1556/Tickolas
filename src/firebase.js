@@ -22,7 +22,6 @@ import {
   updateDoc,
   where
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyCTbXab5djaHa3fjQaPhJ1TZATZ_5mLcRI",
   authDomain: "tickolas-da77a.firebaseapp.com",
@@ -36,6 +35,10 @@ const firebaseConfig = {
 export const firebaseApp = initializeApp(firebaseConfig);
 export const db = getFirestore(firebaseApp);
 export const auth = getAuth(firebaseApp);
+
+const CLOUDINARY_CLOUD_NAME = "qsbc4vql";
+const CLOUDINARY_UPLOAD_PRESET = "tickolas_unsigned_uploads";
+const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
 isSupported().then((supported) => {
   if (supported) getAnalytics(firebaseApp);
@@ -313,6 +316,30 @@ export async function updateEventServices(eventId, services) {
   }
 
   return payload.event;
+}
+
+export async function uploadEventThumbnail(file, eventId) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Please login as seller first.");
+  if (!file) return "";
+
+  const safeEventId = String(eventId || crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g, "-");
+  const uploadData = new FormData();
+  uploadData.append("file", file, `${safeEventId}-${Date.now()}.jpg`);
+  uploadData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+  const response = await fetch(CLOUDINARY_UPLOAD_URL, {
+    method: "POST",
+    body: uploadData
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = payload?.error?.message || "Image upload failed. Check the Cloudinary upload preset.";
+    throw new Error(`Cloudinary: ${message}`);
+  }
+
+  return payload.secure_url || payload.url || "";
 }
 
 export async function scanTicketService({ eventId, service, ticketCode }) {
