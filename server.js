@@ -80,9 +80,10 @@ function sendJson(res, status, payload) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
+    const maxBodySize = 900000;
     req.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 100000) {
+      if (body.length > maxBodySize) {
         reject(new Error("Request body is too large."));
         req.destroy();
       }

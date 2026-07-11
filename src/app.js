@@ -395,15 +395,20 @@ function resizeImageFile(file) {
     reader.onload = () => {
       const image = new Image();
       image.onload = () => {
-        const maxWidth = 1200;
+        const maxWidth = 900;
         const scale = Math.min(1, maxWidth / image.width);
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(image.width * scale);
         canvas.height = Math.round(image.height * scale);
         const context = canvas.getContext("2d");
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.74);
-        if (dataUrl.length > 850000) {
+        let quality = 0.7;
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        while (dataUrl.length > 650000 && quality > 0.42) {
+          quality -= 0.08;
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+        if (dataUrl.length > 650000) {
           reject(new Error("Image is too large. Please choose a smaller photo."));
           return;
         }
