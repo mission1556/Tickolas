@@ -97,9 +97,9 @@ service cloud.firestore {
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.status == "review"
         && request.resource.data.sold == 0
-        && request.resource.data.capacity is int
+        && request.resource.data.capacity is number
         && request.resource.data.capacity > 0
-        && request.resource.data.price is int
+        && request.resource.data.price is number
         && request.resource.data.price > 0
         && request.resource.data.organizerName is string
         && request.resource.data.details is string
@@ -133,9 +133,9 @@ service cloud.firestore {
           ])
           && request.resource.data.status == "review"
           && request.resource.data.createdBy == request.auth.uid
-          && request.resource.data.capacity is int
+          && request.resource.data.capacity is number
           && request.resource.data.capacity >= resource.data.sold
-          && request.resource.data.price is int
+          && request.resource.data.price is number
           && request.resource.data.price > 0
           && request.resource.data.organizerName is string
           && request.resource.data.details is string
