@@ -546,6 +546,127 @@ async function updateEventServices(req, res) {
   sendJson(res, 200, { event: { id: eventId, serviceModules } });
 }
 
+async function saveSellerOrganizationApi(req, res) {
+  const admin = getAdmin();
+  const user = await requireUser(req);
+  const body = await readBody(req);
+  const orgId = cleanString(body.orgId);
+  const ownerId = cleanString(body.ownerId);
+
+  if (!orgId) throw Object.assign(new Error("Organization is required."), { status: 400 });
+  if (ownerId !== user.uid) throw Object.assign(new Error("You can update only your own organization."), { status: 403 });
+
+  const db = admin.firestore();
+  const userSnap = await db.collection("users").doc(user.uid).get();
+  if (!userSnap.exists) throw Object.assign(new Error("User profile missing."), { status: 403 });
+  const profile = userSnap.data();
+  if (!["seller", "admin"].includes(profile.role)) {
+    throw Object.assign(new Error("Only seller accounts can publish events."), { status: 403 });
+  }
+
+  const orgRef = db.collection("organizations").doc(orgId);
+  const orgSnap = await orgRef.get();
+  const payload = {
+    name: cleanString(body.name, profile.displayName || "Organizer"),
+    type: cleanString(body.type, "Event organizer"),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+
+  if (orgSnap.exists) {
+    const org = orgSnap.data();
+    if (profile.role !== "admin" && org.ownerId !== user.uid) {
+      throw Object.assign(new Error("You can update only your own organization."), { status: 403 });
+    }
+    await orgRef.update(payload);
+  } else {
+    await orgRef.set({
+      ...payload,
+      ownerId: user.uid,
+      approved: false,
+      status: "review",
+      paidOut: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
+  sendJson(res, 200, {
+    organization: {
+      id: orgId,
+      name: payload.name,
+      type: payload.type,
+      ownerId: user.uid
+    }
+  });
+}
+
+function cleanEventPayload(data, user, existing = null) {
+  const capacity = Math.max(1, Number(data.capacity) || 0);
+  const price = Math.max(1, Number(data.price) || 0);
+  return {
+    orgId: cleanString(data.orgId, `seller-${user.uid}`),
+    sellerEmail: cleanString(data.sellerEmail, user.email || ""),
+    organizerName: cleanString(data.organizerName, "Organizer"),
+    title: cleanString(data.title, "Untitled event"),
+    category: cleanString(data.category, "Conference"),
+    venue: cleanString(data.venue, "Venue"),
+    details: String(data.details || "").trim().slice(0, 900),
+    imageUrl: String(data.imageUrl || "").trim(),
+    date: cleanString(data.date),
+    price,
+    capacity,
+    serviceModules: cleanServices(data.serviceModules || existing?.serviceModules),
+    createdBy: existing?.createdBy || user.uid,
+    status: "review"
+  };
+}
+
+async function saveEventApi(req, res) {
+  const admin = getAdmin();
+  const user = await requireUser(req);
+  const body = await readBody(req);
+  const eventId = cleanString(body.eventId || body.id);
+  const input = body.data || body;
+
+  if (!eventId) throw Object.assign(new Error("Event ID is required."), { status: 400 });
+
+  const db = admin.firestore();
+  const userSnap = await db.collection("users").doc(user.uid).get();
+  if (!userSnap.exists) throw Object.assign(new Error("User profile missing."), { status: 403 });
+  const profile = userSnap.data();
+  if (!["seller", "admin"].includes(profile.role)) {
+    throw Object.assign(new Error("Only seller accounts can publish events."), { status: 403 });
+  }
+
+  const eventRef = db.collection("events").doc(eventId);
+  const eventSnap = await eventRef.get();
+  const existing = eventSnap.exists ? eventSnap.data() : null;
+
+  if (existing && profile.role !== "admin" && existing.createdBy !== user.uid) {
+    throw Object.assign(new Error("You can edit only your own events."), { status: 403 });
+  }
+
+  const payload = cleanEventPayload(input, user, existing);
+  if (payload.createdBy !== user.uid && profile.role !== "admin") {
+    throw Object.assign(new Error("You can publish only your own events."), { status: 403 });
+  }
+
+  if (eventSnap.exists) {
+    await eventRef.update({
+      ...payload,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  } else {
+    await eventRef.set({
+      ...payload,
+      id: eventId,
+      sold: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
+  sendJson(res, 200, { event: { id: eventId, ...payload } });
+}
+
 async function handleApi(req, res, url) {
   try {
     if (req.method === "OPTIONS") {
@@ -577,6 +698,16 @@ async function handleApi(req, res, url) {
     }
     if (req.method === "POST" && url.pathname === "/api/events/services") {
       await updateEventServices(req, res);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/organizations/save") {
+      await saveSellerOrganizationApi(req, res);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/events/save") {
+      await saveEventApi(req, res);
       return;
     }
 

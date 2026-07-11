@@ -157,27 +157,25 @@ export async function getOrganizations({ publicOnly = false, ownerId = "" } = {}
 }
 
 export async function saveSellerOrganization({ orgId, ownerId, name, type }) {
-  const organizationRef = doc(db, "organizations", orgId);
-  const organization = await getDoc(organizationRef);
-  const profile = {
-    name: String(name || "").trim(),
-    type: String(type || "Event organizer").trim(),
-    updatedAt: serverTimestamp()
-  };
+  const user = auth.currentUser;
+  if (!user) throw new Error("Please login as seller first.");
 
-  if (organization.exists()) {
-    await updateDoc(organizationRef, profile);
-    return;
+  const token = await user.getIdToken(true);
+  const response = await fetch(apiUrl("/api/organizations/save"), {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ orgId, ownerId, name, type })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "Organization update failed.");
   }
 
-  await setDoc(organizationRef, {
-    ...profile,
-    ownerId,
-    approved: false,
-    status: "review",
-    paidOut: 0,
-    createdAt: serverTimestamp()
-  });
+  return payload.organization;
 }
 
 export async function getEvents({ publicOnly = false, ownerId = "" } = {}) {
@@ -230,21 +228,47 @@ export async function settleOrganization(orgId, paidOut) {
 }
 
 export async function createEvent(data) {
-  const eventId = data.id;
-  await setDoc(doc(db, "events", eventId), {
-    ...data,
-    sold: 0,
-    status: "review",
-    createdAt: serverTimestamp()
+  const user = auth.currentUser;
+  if (!user) throw new Error("Please login as seller first.");
+
+  const token = await user.getIdToken(true);
+  const response = await fetch(apiUrl("/api/events/save"), {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ eventId: data.id, data })
   });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "Event publish failed.");
+  }
+
+  return payload.event;
 }
 
 export async function updateEvent(eventId, data) {
-  await updateDoc(doc(db, "events", eventId), {
-    ...data,
-    status: "review",
-    updatedAt: serverTimestamp()
+  const user = auth.currentUser;
+  if (!user) throw new Error("Please login as seller first.");
+
+  const token = await user.getIdToken(true);
+  const response = await fetch(apiUrl("/api/events/save"), {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ eventId, data })
   });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "Event update failed.");
+  }
+
+  return payload.event;
 }
 
 export async function updateEventVouchers(eventId, vouchers) {
