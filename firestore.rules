@@ -101,6 +101,8 @@ service cloud.firestore {
         && request.resource.data.capacity > 0
         && request.resource.data.price is int
         && request.resource.data.price > 0
+        && request.resource.data.organizerName is string
+        && request.resource.data.details is string
         && request.resource.data.title is string
         && request.resource.data.venue is string
         && request.resource.data.category is string
@@ -124,6 +126,7 @@ service cloud.firestore {
             "date",
             "price",
             "capacity",
+            "serviceModules",
             "createdBy",
             "status",
             "updatedAt"
@@ -134,6 +137,8 @@ service cloud.firestore {
           && request.resource.data.capacity >= resource.data.sold
           && request.resource.data.price is int
           && request.resource.data.price > 0
+          && request.resource.data.organizerName is string
+          && request.resource.data.details is string
         )
         || (
           signedIn()
