@@ -511,6 +511,26 @@ function getOrg(orgId) {
   return state.organizations.find((org) => org.id === orgId);
 }
 
+function organizerName(event) {
+  const eventName = String(event?.organizerName || "").trim();
+  if (eventName) return eventName;
+
+  const organizationName = String(getOrg(event?.orgId)?.name || "").trim();
+  return organizationName || "Organizer";
+}
+
+function preferredOrganizerName() {
+  const savedEvent = state.events.find((event) =>
+    event.createdBy === state.currentUser?.uid && String(event.organizerName || "").trim()
+  );
+  return String(
+    savedEvent?.organizerName
+      || state.currentProfile?.displayName
+      || state.currentUser?.displayName
+      || ""
+  ).trim();
+}
+
 function getEvent(eventId) {
   return state.events.find((event) => event.id === eventId);
 }
@@ -965,7 +985,7 @@ async function buildTicketPdf({ order, event, org }) {
     minute: "2-digit"
   });
   const ticketId = String(order.id || "");
-  const organizer = org?.name || event?.sellerEmail || "Organization";
+  const organizer = String(event?.organizerName || org?.name || "").trim() || "Organizer";
   const quantity = Number(order.quantity || 1);
   const ticketLines = [
     pdfText("ickolas", 106, 744, 28, "1 1 1", "F2"),
@@ -1027,14 +1047,13 @@ async function downloadTicketPdf(ticket) {
 }
 
 function eventSearchText(event) {
-  const org = getOrg(event.orgId) || { name: event.sellerEmail || "" };
   return [
     event.title,
     event.category,
     event.venue,
     event.date,
-    org.name,
-    org.type
+    organizerName(event),
+    getOrg(event.orgId)?.type || ""
   ].join(" ").toLowerCase();
 }
 
@@ -1232,7 +1251,6 @@ function renderHome() {
 
 function renderEventSlider(events) {
   const event = events[state.activeSlide] || events[0];
-  const org = getOrg(event.orgId) || { name: "Organization" };
   const remaining = remainingTickets(event);
   const dots = events
     .map((item, index) => `
@@ -1248,7 +1266,7 @@ function renderEventSlider(events) {
         <p>${escapeHtml(event.venue)} | ${dateLabel(event.date)}</p>
         <div class="slider-meta">
           <strong>${money(event.price)}</strong>
-          <span>${escapeHtml(org.name)}</span>
+          <span>${escapeHtml(organizerName(event))}</span>
           <span>${remaining} tickets left</span>
         </div>
         <button class="primary-button" type="button" data-action="slider-buy" data-event-id="${escapeHtml(event.id)}">Buy ticket</button>
@@ -1322,7 +1340,7 @@ function renderAdmin() {
   elements.adminEventRows.innerHTML = managedEvents.length
     ? managedEvents
         .map((event) => {
-          const org = getOrg(event.orgId) || { name: event.sellerEmail || "Seller event" };
+          const org = { name: organizerName(event) };
           const action = event.status === "review"
             ? `
               <div class="button-row">
@@ -1370,7 +1388,7 @@ function renderAdmin() {
   elements.eventSalesRows.innerHTML = eventSales.length
     ? eventSales
         .map((event) => {
-          const org = getOrg(event.orgId) || { name: event.sellerEmail || "Seller event" };
+          const org = { name: organizerName(event) };
           const sold = soldCount(event);
           const gross = eventGross(event);
           const split = splitAmount(gross);
@@ -1523,10 +1541,11 @@ function renderSellerEvent(event) {
   `;
 }
 
-function resetEventForm() {
+function resetEventForm(organizer = "") {
   state.editingEventId = "";
   state.editingImageUrl = "";
   elements.eventForm.reset();
+  elements.eventForm.elements.organizerName.value = String(organizer || preferredOrganizerName()).trim();
   elements.eventFormTitle.textContent = "Create event";
   elements.eventFormHint.textContent = "New events go to review first";
   elements.eventSubmitButton.textContent = "Publish event";
@@ -1691,6 +1710,7 @@ function startEventEdit(eventId) {
   state.editingEventId = event.id;
   state.editingImageUrl = event.imageUrl || "";
   elements.eventForm.elements.title.value = event.title || "";
+  elements.eventForm.elements.organizerName.value = organizerName(event) === "Organizer" ? "" : organizerName(event);
   elements.eventForm.elements.category.value = event.category || "Conference";
   elements.eventForm.elements.venue.value = event.venue || "";
   elements.eventForm.elements.details.value = event.details || "";
@@ -1735,9 +1755,7 @@ function renderBuyer() {
 }
 
 function renderEventCard(event) {
-  const org = getOrg(event.orgId) || { name: "Organization" };
   const remaining = remainingTickets(event);
-  const detailPreview = String(event.details || "").trim();
   return `
     <article class="event-card">
       <div class="event-art"${eventImageStyle(event)}>
@@ -1746,16 +1764,15 @@ function renderEventCard(event) {
       <div class="event-card-body">
         <span class="status live">${escapeHtml(event.category)}</span>
         <h3>${escapeHtml(event.title)}</h3>
-        ${detailPreview ? `<p class="event-card-details">${escapeHtml(detailPreview.slice(0, 130))}${detailPreview.length > 130 ? "..." : ""}</p>` : ""}
         <div class="event-meta">
           <span>${dateLabel(event.date)}</span>
           <span>${escapeHtml(event.venue)}</span>
-          <span>${escapeHtml(org.name)}</span>
+          <span>${escapeHtml(organizerName(event))}</span>
           <span>${remaining} tickets left</span>
         </div>
         <div class="event-price-row">
           <strong>${money(event.price)}</strong>
-          <button class="select-event" type="button" data-action="select-event" data-event-id="${escapeHtml(event.id)}">Select</button>
+          <button class="select-event" type="button" data-action="select-event" data-event-id="${escapeHtml(event.id)}">View details</button>
         </div>
       </div>
     </article>
@@ -1763,9 +1780,7 @@ function renderEventCard(event) {
 }
 
 function renderLandingEventCard(event) {
-  const org = getOrg(event.orgId) || { name: "Organization" };
   const remaining = remainingTickets(event);
-  const detailPreview = String(event.details || "").trim();
   return `
     <article class="landing-event-card" data-action="landing-buy" data-event-id="${escapeHtml(event.id)}" tabindex="0" role="button" aria-label="Buy ticket for ${escapeHtml(event.title)}">
       <div class="landing-event-media"${eventImageStyle(event)}>
@@ -1778,8 +1793,7 @@ function renderLandingEventCard(event) {
         </div>
         <h3>${escapeHtml(event.title)}</h3>
         <p>${escapeHtml(event.venue)}</p>
-        ${detailPreview ? `<p>${escapeHtml(detailPreview.slice(0, 120))}${detailPreview.length > 120 ? "..." : ""}</p>` : ""}
-        <p>${escapeHtml(org.name)} | ${remaining} tickets left</p>
+        <p>${escapeHtml(organizerName(event))} | ${remaining} tickets left</p>
         <button class="primary-button" type="button" data-action="landing-buy" data-event-id="${escapeHtml(event.id)}">Buy ticket</button>
       </div>
     </article>
@@ -1793,7 +1807,6 @@ function openEventDetailsModal(eventId) {
     return;
   }
 
-  const org = getOrg(event.orgId) || { name: event.sellerEmail || "Organization", type: "Seller event" };
   const sold = soldCount(event);
   const gross = eventGross(event);
   const split = splitAmount(gross);
@@ -1811,8 +1824,7 @@ function openEventDetailsModal(eventId) {
       <span>${escapeHtml(event.category || "Event")}</span>
     </div>
     <dl class="event-details-grid">
-      <div><dt>Organization</dt><dd>${escapeHtml(org.name)}</dd></div>
-      <div><dt>Seller email</dt><dd>${escapeHtml(event.sellerEmail || org.email || "Not provided")}</dd></div>
+      <div><dt>Organizer</dt><dd>${escapeHtml(organizerName(event))}</dd></div>
       <div><dt>Category</dt><dd>${escapeHtml(event.category)}</dd></div>
       <div><dt>Venue</dt><dd>${escapeHtml(event.venue)}</dd></div>
       <div><dt>Date</dt><dd>${dateLabel(event.date)}</dd></div>
@@ -1829,6 +1841,7 @@ function openEventDetailsModal(eventId) {
   elements.eventDetailsModal.hidden = false;
   pushModalHistory();
   syncModalState();
+  window.setTimeout(() => elements.closeEventDetails.focus(), 0);
 }
 
 function closeEventDetailsModal() {
@@ -1916,7 +1929,6 @@ function openEventPreviewModal(eventId = state.selectedEventId) {
 
   clearReceiptOutput();
   state.selectedEventId = event.id;
-  const org = getOrg(event.orgId) || { name: event.sellerEmail || "Organization" };
   const remaining = remainingTickets(event);
   elements.eventPreviewBody.innerHTML = `
     <div class="event-preview-hero"${eventImageStyle(event)}>
@@ -1930,7 +1942,7 @@ function openEventPreviewModal(eventId = state.selectedEventId) {
       <dl class="event-preview-facts">
         <div><dt>Date</dt><dd>${dateLabel(event.date)}</dd></div>
         <div><dt>Venue</dt><dd>${escapeHtml(event.venue)}</dd></div>
-        <div><dt>Organizer</dt><dd>${escapeHtml(org.name)}</dd></div>
+        <div><dt>Organizer</dt><dd>${escapeHtml(organizerName(event))}</dd></div>
         <div><dt>Ticket price</dt><dd>${money(event.price)}</dd></div>
         <div><dt>Available</dt><dd>${remaining} tickets left</dd></div>
       </dl>
@@ -1946,6 +1958,7 @@ function openEventPreviewModal(eventId = state.selectedEventId) {
   elements.checkoutBackdrop.hidden = false;
   pushModalHistory();
   syncModalState();
+  window.setTimeout(() => elements.closeEventPreview.focus(), 0);
 }
 
 function closeEventPreviewModal(hideBackdrop = true) {
@@ -2426,6 +2439,7 @@ elements.eventForm.addEventListener("submit", async (event) => {
     const eventData = {
       orgId: `seller-${state.currentUser.uid}`,
       sellerEmail: state.currentUser.email || state.currentProfile?.email || "",
+      organizerName: String(formData.get("organizerName") || "").trim().slice(0, 80),
       title,
       category: String(formData.get("category")),
       venue: String(formData.get("venue")).trim(),
@@ -2449,7 +2463,7 @@ elements.eventForm.addEventListener("submit", async (event) => {
       showToast("Event submitted for admin review.");
     }
 
-    resetEventForm();
+    resetEventForm(eventData.organizerName);
     await loadData();
   } catch (error) {
     showToast(error.message);
@@ -2559,6 +2573,7 @@ elements.landingEventGrid.addEventListener("click", (event) => {
 
 elements.landingEventGrid.addEventListener("keydown", (event) => {
   if (!["Enter", " "].includes(event.key)) return;
+  if (event.target.closest("button")) return;
   const card = event.target.closest("[data-action='landing-buy']");
   if (!card) return;
   event.preventDefault();
@@ -2612,7 +2627,7 @@ elements.checkoutForm.addEventListener("submit", async (event) => {
   try {
     await runButtonAction(submitButton, "Buying...", async () => {
       const ticketEvent = getEvent(state.selectedEventId);
-      const ticketOrg = getOrg(ticketEvent?.orgId) || { name: ticketEvent?.sellerEmail || "Organization" };
+      const ticketOrg = getOrg(ticketEvent?.orgId) || { name: organizerName(ticketEvent) };
       const order = await createOrder(
         {
           eventId: state.selectedEventId,
@@ -2672,6 +2687,18 @@ window.addEventListener("popstate", () => {
     return;
   }
   handleTicketVerificationHash();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !isAnyModalOpen()) return;
+  if (!elements.checkoutPanel.hidden) {
+    closeCheckoutModal();
+  } else if (!elements.eventPreviewPanel.hidden) {
+    closeEventPreviewModal();
+  } else if (!elements.authModal.hidden) {
+    closeAuthModal();
+  } else if (!elements.eventDetailsModal.hidden) {
+    closeEventDetailsModal();
+  }
 });
 window.addEventListener("hashchange", handleTicketVerificationHash);
 window.setTimeout(handleTicketVerificationHash, 300);

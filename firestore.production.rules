@@ -86,9 +86,11 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             "orgId",
             "sellerEmail",
+            "organizerName",
             "title",
             "category",
             "venue",
+            "details",
             "imageUrl",
             "date",
             "price",

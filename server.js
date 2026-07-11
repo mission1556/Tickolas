@@ -129,20 +129,26 @@ function getAdmin() {
   if (adminError) throw adminError;
 
   try {
-    const admin = require("firebase-admin");
+    const { cert, getApps, initializeApp } = require("firebase-admin/app");
+    const { getAuth } = require("firebase-admin/auth");
+    const { FieldValue, getFirestore } = require("firebase-admin/firestore");
     const serviceAccount = loadServiceAccount();
     if (!serviceAccount) {
       throw new Error("Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON.");
     }
 
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
+    if (!getApps().length) {
+      initializeApp({
+        credential: cert(serviceAccount),
         projectId: serviceAccount.project_id || process.env.FIREBASE_PROJECT_ID
       });
     }
 
-    adminApp = admin;
+    const firestore = Object.assign(() => getFirestore(), { FieldValue });
+    adminApp = {
+      auth: () => getAuth(),
+      firestore
+    };
     return adminApp;
   } catch (error) {
     adminError = error;
