@@ -1878,12 +1878,6 @@ function openAuthForm(role) {
 
 function startBuyerFlow(eventId) {
   state.selectedEventId = eventId;
-  state.pendingBuyerEventId = eventId;
-  if (!state.currentUser) {
-    openAuthForm("buyer");
-    return;
-  }
-  changePanel("buyer");
   openEventPreviewModal(eventId);
 }
 
@@ -1902,7 +1896,7 @@ function clearReceiptOutput() {
 }
 
 function openCheckoutModal({ keepReceipt = false } = {}) {
-  closeEventPreviewModal(false);
+  closeEventPreviewModal(false, false);
   if (!keepReceipt) {
     clearReceiptOutput();
   }
@@ -1961,12 +1955,14 @@ function openEventPreviewModal(eventId = state.selectedEventId) {
   window.setTimeout(() => elements.closeEventPreview.focus(), 0);
 }
 
-function closeEventPreviewModal(hideBackdrop = true) {
+function closeEventPreviewModal(hideBackdrop = true, syncHistory = true) {
   elements.eventPreviewPanel.hidden = true;
   if (hideBackdrop && elements.checkoutPanel.hidden) {
     elements.checkoutBackdrop.hidden = true;
   }
-  syncModalState();
+  if (syncHistory) {
+    syncModalState();
+  }
 }
 
 function continuePendingBuyerEvent() {
@@ -2610,6 +2606,20 @@ elements.closeEventPreview.addEventListener("click", () => closeEventPreviewModa
 elements.eventPreviewPanel.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action='confirm-event-checkout']");
   if (!button) return;
+
+  if (!state.currentUser) {
+    state.pendingBuyerEventId = state.selectedEventId;
+    closeEventPreviewModal(false, false);
+    openAuthForm("buyer");
+    return;
+  }
+
+  if (state.currentProfile?.role !== "buyer") {
+    showToast("Please use a buyer account to purchase tickets.");
+    return;
+  }
+
+  changePanel("buyer");
   openCheckoutModal();
 });
 elements.checkoutBackdrop.addEventListener("click", () => {
