@@ -17,6 +17,7 @@ import {
   rejectEvent,
   rejectOrganization,
   registerUser,
+  saveSellerOrganization,
   settleOrganization,
   scanTicketService,
   updateEvent,
@@ -200,6 +201,18 @@ function acceptSellerAgreement() {
 }
 
 function userLabel() {
+  if (userRole() === "seller") {
+    const sellerName = state.events
+      .filter((event) => event.createdBy === state.currentUser?.uid)
+      .map((event) => String(event.organizerName || "").trim())
+      .find(Boolean);
+    if (sellerName) return sellerName;
+  }
+
+  const displayName = String(state.currentProfile?.displayName || state.currentUser?.displayName || "").trim();
+  if (displayName) return displayName;
+  if (userRole() === "seller") return "Seller";
+
   const email = state.currentProfile?.email || state.currentUser?.email || "";
   return email ? email.split("@")[0] : "User";
 }
@@ -219,6 +232,7 @@ function routeToProfile(profile) {
   }
   if (state.activePanel !== previousPanel) {
     showPageLoader(state.activePanel);
+    render();
   }
 }
 
@@ -1191,7 +1205,7 @@ async function loadData() {
     const seller = userRole() === "seller";
     const publicOnly = !state.currentUser || userRole() === "buyer";
     const [organizations, events, orders] = await Promise.all([
-      getOrganizations({ publicOnly }),
+      getOrganizations({ publicOnly, ownerId: seller ? state.currentUser.uid : "" }),
       getEvents({ publicOnly, ownerId: seller ? state.currentUser.uid : "" }),
       getOrders({ userId: state.currentUser?.uid || "", admin })
     ]);
@@ -2447,6 +2461,13 @@ elements.eventForm.addEventListener("submit", async (event) => {
       serviceModules: state.editingEventId ? serviceModules(getEvent(state.editingEventId)) : defaultServiceModules,
       createdBy: state.currentUser.uid
     };
+
+    await saveSellerOrganization({
+      orgId: eventData.orgId,
+      ownerId: state.currentUser.uid,
+      name: eventData.organizerName,
+      type: eventData.category
+    });
 
     if (state.editingEventId) {
       await updateEvent(state.editingEventId, eventData);

@@ -126,12 +126,38 @@ export async function logoutUser() {
   await signOut(auth);
 }
 
-export async function getOrganizations({ publicOnly = false } = {}) {
-  const baseQuery = publicOnly
+export async function getOrganizations({ publicOnly = false, ownerId = "" } = {}) {
+  const baseQuery = ownerId
+    ? query(collection(db, "organizations"), where("ownerId", "==", ownerId))
+    : publicOnly
     ? query(collection(db, "organizations"), where("approved", "==", true))
     : query(collection(db, "organizations"));
   const snapshot = await getDocs(baseQuery);
   return fromSnap(snapshot).sort(byCreatedAtAsc);
+}
+
+export async function saveSellerOrganization({ orgId, ownerId, name, type }) {
+  const organizationRef = doc(db, "organizations", orgId);
+  const organization = await getDoc(organizationRef);
+  const profile = {
+    name: String(name || "").trim(),
+    type: String(type || "Event organizer").trim(),
+    updatedAt: serverTimestamp()
+  };
+
+  if (organization.exists()) {
+    await updateDoc(organizationRef, profile);
+    return;
+  }
+
+  await setDoc(organizationRef, {
+    ...profile,
+    ownerId,
+    approved: false,
+    status: "review",
+    paidOut: 0,
+    createdAt: serverTimestamp()
+  });
 }
 
 export async function getEvents({ publicOnly = false, ownerId = "" } = {}) {

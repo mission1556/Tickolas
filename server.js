@@ -157,11 +157,14 @@ function getAdmin() {
 }
 
 async function requireUser(req) {
-  const admin = getAdmin();
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   if (!token) throw Object.assign(new Error("Login token missing."), { status: 401 });
-  return admin.auth().verifyIdToken(token);
+  try {
+    return await getAdmin().auth().verifyIdToken(token);
+  } catch {
+    throw Object.assign(new Error("Login session is invalid or expired. Please login again."), { status: 401 });
+  }
 }
 
 function splitAmount(gross) {

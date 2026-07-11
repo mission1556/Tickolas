@@ -60,7 +60,19 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.type is string
         && request.resource.data.createdAt is timestamp;
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "type", "updatedAt"])
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.approved == resource.data.approved
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.name is string
+          && request.resource.data.type is string
+        );
+      allow delete: if isAdmin();
     }
 
     match /events/{eventId} {
