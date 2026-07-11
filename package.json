@@ -4,14 +4,14 @@
   "private": true,
   "description": "Tickolas e-ticketing frontend using Firebase Firestore as the backend.",
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node server.js",
     "check": "node --check src/app.js && node --check src/firebase.js && node --check server.js && node --check api/index.js"
   },
   "dependencies": {
-    "firebase-admin": "^14.1.0",
+    "firebase-admin": "13.6.0",
     "jsqr": "^1.4.0",
     "qrcode-generator": "^1.4.4"
   }
