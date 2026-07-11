@@ -94,20 +94,40 @@ export async function ensureUserProfile(user, role) {
   const profile = {
     email: user.email || "",
     role,
+    displayName: user.displayName || "",
     createdAt: serverTimestamp()
   };
   await setDoc(doc(db, "users", user.uid), profile);
   return { ...profile, id: user.uid };
 }
 
-export async function registerUser({ email, password, role }) {
+export async function registerUser({ email, password, role, displayName = "", dateOfBirth = "" }) {
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   await setDoc(doc(db, "users", credential.user.uid), {
     email,
     role,
+    displayName: String(displayName || "").trim(),
+    dateOfBirth: String(dateOfBirth || "").trim(),
     createdAt: serverTimestamp()
   });
   return credential.user;
+}
+
+export async function updateUserProfileInfo({ displayName = "", dateOfBirth = "" }) {
+  if (!auth.currentUser) {
+    throw new Error("Please login first.");
+  }
+
+  const payload = {
+    displayName: String(displayName || "").trim(),
+    updatedAt: serverTimestamp()
+  };
+
+  if (dateOfBirth !== undefined) {
+    payload.dateOfBirth = String(dateOfBirth || "").trim();
+  }
+
+  await updateDoc(doc(db, "users", auth.currentUser.uid), payload);
 }
 
 export async function loginUser({ email, password }) {

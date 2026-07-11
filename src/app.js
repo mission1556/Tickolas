@@ -23,6 +23,7 @@ import {
   updateEvent,
   updateEventServices,
   updateEventVouchers,
+  updateUserProfileInfo,
   watchAuthState
 } from "./firebase.js";
 
@@ -161,6 +162,8 @@ const elements = {
   authForm: document.querySelector("#authForm"),
   authRoleLabel: document.querySelector("#authRoleLabel"),
   authFormTitle: document.querySelector("#authFormTitle"),
+  authSellerNameWrap: document.querySelector("#authSellerNameWrap"),
+  authSellerName: document.querySelector("#authSellerName"),
   authIdentifier: document.querySelector("#authIdentifier"),
   authPassword: document.querySelector("#authPassword"),
   authConfirmWrap: document.querySelector("#authConfirmWrap"),
@@ -170,6 +173,13 @@ const elements = {
   authGoogle: document.querySelector("#authGoogle"),
   authSwitchPrompt: document.querySelector("#authSwitchPrompt"),
   authSwitch: document.querySelector("#authSwitch"),
+  sellerProfileModal: document.querySelector("#sellerProfileModal"),
+  sellerProfileForm: document.querySelector("#sellerProfileForm"),
+  sellerProfileName: document.querySelector("#sellerProfileName"),
+  sellerProfileDob: document.querySelector("#sellerProfileDob"),
+  sellerProfileMessage: document.querySelector("#sellerProfileMessage"),
+  sellerProfileSubmit: document.querySelector("#sellerProfileSubmit"),
+  scannerModuleManager: document.querySelector("#scannerModuleManager"),
   passwordToggles: document.querySelectorAll("[data-toggle-password]"),
   toast: document.querySelector("#toast")
 };
@@ -201,6 +211,9 @@ function acceptSellerAgreement() {
 }
 
 function userLabel() {
+  const displayName = String(state.currentProfile?.displayName || state.currentUser?.displayName || "").trim();
+  if (displayName) return displayName;
+
   if (userRole() === "seller") {
     const sellerName = state.events
       .filter((event) => event.createdBy === state.currentUser?.uid)
@@ -208,9 +221,6 @@ function userLabel() {
       .find(Boolean);
     if (sellerName) return sellerName;
   }
-
-  const displayName = String(state.currentProfile?.displayName || state.currentUser?.displayName || "").trim();
-  if (displayName) return displayName;
   if (userRole() === "seller") return "Seller";
 
   const email = state.currentProfile?.email || state.currentUser?.email || "";
@@ -256,6 +266,7 @@ function hidePageLoader() {
 
 function isAnyModalOpen() {
   return !elements.authModal.hidden
+    || !elements.sellerProfileModal.hidden
     || !elements.eventDetailsModal.hidden
     || !elements.eventPreviewPanel.hidden
     || !elements.checkoutPanel.hidden;
@@ -284,6 +295,7 @@ function pushModalHistory() {
 
 function closeAllModalsFromHistory() {
   elements.authModal.hidden = true;
+  elements.sellerProfileModal.hidden = true;
   elements.eventDetailsModal.hidden = true;
   elements.eventPreviewPanel.hidden = true;
   elements.checkoutPanel.hidden = true;
@@ -1479,7 +1491,6 @@ function renderSellerEvent(event) {
   const progress = Math.min(Math.round((sold / Number(event.capacity || 1)) * 100), 100);
   const split = splitAmount(eventGross(event));
   const vouchers = voucherList(event);
-  const services = serviceModules(event);
   const editButton = canEditEvent(event)
     ? `<button class="table-button secondary" type="button" data-action="edit-seller-event" data-event-id="${escapeHtml(event.id)}">Edit</button>`
     : "";
@@ -1508,28 +1519,6 @@ function renderSellerEvent(event) {
       </div>
     `
     : "";
-  const serviceManager = canEditEvent(event)
-    ? `
-      <div class="voucher-manager service-manager">
-        <div class="voucher-manager-head">
-          <strong>Scan modules</strong>
-          <span>${services.length} active</span>
-        </div>
-        <form class="voucher-form" data-action="add-service" data-event-id="${escapeHtml(event.id)}">
-          <input name="label" type="text" required placeholder="Entry, T-shirt, Cap, Gift...">
-          <button class="table-button" type="submit">Add module</button>
-        </form>
-        <div class="voucher-list">
-          ${services.map((service) => `
-            <span class="voucher-chip service-chip">
-              ${escapeHtml(service.label)}
-              ${service.key === "entry" ? "" : `<button type="button" data-action="delete-service" data-event-id="${escapeHtml(event.id)}" data-service-key="${escapeHtml(service.key)}" aria-label="Delete ${escapeHtml(service.label)}">x</button>`}
-            </span>
-          `).join("")}
-        </div>
-      </div>
-    `
-    : "";
   return `
     <article class="seller-event">
       <div class="seller-event-main">
@@ -1550,8 +1539,41 @@ function renderSellerEvent(event) {
         ${editButton}
       </div>
       ${voucherManager}
-      ${serviceManager}
     </article>
+  `;
+}
+
+function renderScannerModuleManager() {
+  const event = getEvent(elements.scannerEvent.value);
+  if (!event) {
+    return `<p class="empty-state compact">Select an event to manage scan modules.</p>`;
+  }
+
+  const services = serviceModules(event);
+  const canManage = canEditEvent(event);
+  if (!canManage) {
+    return "";
+  }
+
+  return `
+    <div class="scan-module-manager-card">
+      <div class="voucher-manager-head">
+        <strong>Custom scan modules</strong>
+        <span>${services.length} active</span>
+      </div>
+      <form class="voucher-form" data-action="add-service" data-event-id="${escapeHtml(event.id)}">
+        <input name="label" type="text" required placeholder="Entry, T-shirt, Cap, Gift...">
+        <button class="table-button" type="submit">Add module</button>
+      </form>
+      <div class="voucher-list">
+        ${services.map((service) => `
+          <span class="voucher-chip service-chip">
+            ${escapeHtml(service.label)}
+            ${service.key === "entry" ? "" : `<button type="button" data-action="delete-service" data-event-id="${escapeHtml(event.id)}" data-service-key="${escapeHtml(service.key)}" aria-label="Delete ${escapeHtml(service.label)}">x</button>`}
+          </span>
+        `).join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -1601,6 +1623,8 @@ function renderScannerServiceOptions() {
       ${escapeHtml(service.label)}
     </button>
   `).join("");
+
+  elements.scannerModuleManager.innerHTML = renderScannerModuleManager();
 }
 
 async function processTicketScan(ticketCode) {
@@ -1903,6 +1927,37 @@ function closeAuthModal(clearPendingBuyerEvent = true) {
   syncModalState();
 }
 
+function sellerProfileNeedsInfo(profile = state.currentProfile) {
+  return profile?.role === "seller" && !String(profile.displayName || "").trim();
+}
+
+function showSellerProfileMessage(message) {
+  elements.sellerProfileMessage.textContent = message;
+  elements.sellerProfileMessage.hidden = !message;
+}
+
+function openSellerProfileModal() {
+  elements.sellerProfileName.value = String(state.currentProfile?.displayName || state.currentUser?.displayName || "").trim();
+  elements.sellerProfileDob.value = String(state.currentProfile?.dateOfBirth || "").trim();
+  showSellerProfileMessage("");
+  elements.sellerProfileModal.hidden = false;
+  pushModalHistory();
+  syncModalState();
+  window.setTimeout(() => elements.sellerProfileName.focus(), 0);
+}
+
+function closeSellerProfileModal() {
+  elements.sellerProfileModal.hidden = true;
+  syncModalState();
+}
+
+function promptSellerProfileIfNeeded() {
+  if (!sellerProfileNeedsInfo()) return;
+  if (!elements.sellerProfileModal.hidden) return;
+  showToast("Update your info.");
+  openSellerProfileModal();
+}
+
 function clearReceiptOutput() {
   state.lastTicket = null;
   elements.receiptOutput.innerHTML = "";
@@ -2000,6 +2055,7 @@ function resetPasswordVisibility() {
 }
 
 function resetAuthInputs() {
+  elements.authSellerName.value = "";
   elements.authIdentifier.value = "";
   elements.authPassword.value = "";
   elements.authConfirmPassword.value = "";
@@ -2019,6 +2075,9 @@ function setAuthMode(mode) {
   elements.authSwitch.textContent = isSignup ? "Login" : "Sign up";
   elements.authSwitch.disabled = state.authRole === "admin";
   elements.authSwitch.parentElement.hidden = state.authRole === "admin";
+  elements.authSellerNameWrap.hidden = !(isSignup && state.authRole === "seller");
+  elements.authSellerName.required = isSignup && state.authRole === "seller";
+  elements.authSellerName.disabled = !(isSignup && state.authRole === "seller");
   elements.authConfirmWrap.hidden = !isSignup;
   elements.authConfirmPassword.required = isSignup;
   elements.authConfirmPassword.disabled = !isSignup;
@@ -2050,7 +2109,12 @@ async function completeAuthFlow() {
   }
 
   if (isSignup) {
-    const user = await registerUser({ email, password, role: state.authRole });
+    const user = await registerUser({
+      email,
+      password,
+      role: state.authRole,
+      displayName: state.authRole === "seller" ? elements.authSellerName.value.trim() : ""
+    });
     const profile = await getUserProfile(user.uid);
     state.currentUser = user;
     state.currentProfile = profile;
@@ -2084,6 +2148,7 @@ async function completeAuthFlow() {
 
   closeAuthModal(false);
   await loadData();
+  promptSellerProfileIfNeeded();
   continuePendingBuyerEvent();
 }
 
@@ -2119,6 +2184,7 @@ async function completeGoogleAuthFlow() {
   closeAuthModal(false);
   showToast(profile?.role === "admin" ? "Admin login successful." : "Google login successful.");
   await loadData();
+  promptSellerProfileIfNeeded();
   continuePendingBuyerEvent();
 }
 
@@ -2277,6 +2343,28 @@ elements.authForm.addEventListener("submit", async (event) => {
   }
 });
 
+elements.sellerProfileForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!elements.sellerProfileForm.checkValidity()) {
+    elements.sellerProfileForm.reportValidity();
+    return;
+  }
+
+  const displayName = elements.sellerProfileName.value.trim();
+  const dateOfBirth = elements.sellerProfileDob.value.trim();
+  try {
+    await runButtonAction(elements.sellerProfileSubmit, "Saving...", async () => {
+      await updateUserProfileInfo({ displayName, dateOfBirth });
+      state.currentProfile = await getUserProfile(state.currentUser.uid);
+      closeSellerProfileModal();
+      showToast("Seller info updated.");
+      render();
+    });
+  } catch (error) {
+    showSellerProfileMessage(error.message || "Could not update seller info.");
+  }
+});
+
 elements.cancelEventEdit.addEventListener("click", resetEventForm);
 
 elements.agreeSellerTerms.addEventListener("click", acceptSellerAgreement);
@@ -2390,6 +2478,61 @@ elements.sellerEventRows.addEventListener("submit", async (event) => {
     });
   } catch (error) {
     showToast(error.message || "Voucher save failed.");
+  }
+});
+
+elements.scannerModuleManager.addEventListener("click", async (event) => {
+  const deleteServiceButton = event.target.closest("[data-action='delete-service']");
+  if (!deleteServiceButton) return;
+
+  const serviceEvent = getEvent(deleteServiceButton.dataset.eventId);
+  if (!serviceEvent || !canEditEvent(serviceEvent)) {
+    showToast("You can manage only your own scan modules.");
+    return;
+  }
+
+  const nextServices = serviceModules(serviceEvent).filter((service) => service.key !== deleteServiceButton.dataset.serviceKey);
+  try {
+    await runButtonAction(deleteServiceButton, "...", async () => {
+      await updateEventServices(serviceEvent.id, nextServices);
+      showToast("Scan module deleted.");
+      await loadData();
+    });
+  } catch (error) {
+    showToast(error.message || "Scan module delete failed.");
+  }
+});
+
+elements.scannerModuleManager.addEventListener("submit", async (event) => {
+  const serviceForm = event.target.closest("[data-action='add-service']");
+  if (!serviceForm) return;
+  event.preventDefault();
+
+  const serviceEvent = getEvent(serviceForm.dataset.eventId);
+  if (!serviceEvent || !canEditEvent(serviceEvent)) {
+    showToast("You can manage only your own scan modules.");
+    return;
+  }
+
+  const label = String(new FormData(serviceForm).get("label") || "").trim().slice(0, 32);
+  const key = serviceKeyFromLabel(label);
+  if (!key || !label) {
+    showToast("Module name is required.");
+    return;
+  }
+
+  const existing = serviceModules(serviceEvent).filter((service) => service.key !== key);
+  const nextServices = [...existing, { key, label }].sort((a, b) => a.label.localeCompare(b.label));
+  const submitButton = serviceForm.querySelector("button[type='submit']");
+  try {
+    await runButtonAction(submitButton, "Adding...", async () => {
+      await updateEventServices(serviceEvent.id, nextServices);
+      serviceForm.reset();
+      showToast("Scan module saved.");
+      await loadData();
+    });
+  } catch (error) {
+    showToast(error.message || "Scan module save failed.");
   }
 });
 
@@ -2689,7 +2832,7 @@ elements.checkoutForm.addEventListener("submit", async (event) => {
         <button class="primary-button receipt-download" type="button" data-action="download-ticket-pdf">Download ticket PDF</button>
       `;
       elements.receiptOutput.classList.add("show");
-      showToast("Ticket purchased and saved to Firebase.");
+      showToast("Ticket purchased successfully.");
       await loadData();
       openCheckoutModal({ keepReceipt: true });
     });
@@ -2770,4 +2913,5 @@ watchAuthState(async (user, profile) => {
   }
 
   await loadData();
+  promptSellerProfileIfNeeded();
 });

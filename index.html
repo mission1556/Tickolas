@@ -315,10 +315,11 @@
               </div>
               <div class="scanner-grid">
                 <div class="scanner-controls">
-                  <label>
+                  <label class="scanner-event-field">
                     <span>Event</span>
                     <select id="scannerEvent"></select>
                   </label>
+                  <div class="scan-module-manager" id="scannerModuleManager"></div>
                   <fieldset>
                     <legend>Scan module</legend>
                     <div class="service-toggle-grid" id="serviceToggleGrid"></div>
@@ -496,6 +497,10 @@
         <form class="auth-form" id="authForm" hidden>
           <p class="eyebrow" id="authRoleLabel">Buyer access</p>
           <h2 id="authFormTitle">Login</h2>
+          <label id="authSellerNameWrap" hidden>
+            <span>Seller name</span>
+            <input id="authSellerName" type="text" maxlength="80" placeholder="Your organization or seller name">
+          </label>
           <label>
             <span>Gmail or mobile number</span>
             <input id="authIdentifier" type="text" required placeholder="name@gmail.com or 01XXXXXXXXX">
@@ -553,6 +558,25 @@
           </p>
         </form>
       </section>
+    </div>
+
+    <div class="auth-modal" id="sellerProfileModal" hidden>
+      <div class="auth-backdrop"></div>
+      <form class="auth-dialog seller-profile-dialog" id="sellerProfileForm" role="dialog" aria-modal="true" aria-labelledby="sellerProfileTitle">
+        <p class="eyebrow">Seller info</p>
+        <h2 id="sellerProfileTitle">Update your info</h2>
+        <p class="muted-copy">Add your seller name so buyers and the navbar show a professional organizer identity.</p>
+        <label>
+          <span>Seller name</span>
+          <input id="sellerProfileName" type="text" maxlength="80" required placeholder="Your seller or organization name">
+        </label>
+        <label>
+          <span>Date of birth</span>
+          <input id="sellerProfileDob" type="date">
+        </label>
+        <p class="auth-message" id="sellerProfileMessage" hidden></p>
+        <button class="primary-button" id="sellerProfileSubmit" type="submit">Save seller info</button>
+      </form>
     </div>
 
     <!-- 10. Toast and scripts -->
