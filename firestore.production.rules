@@ -116,7 +116,7 @@ service cloud.firestore {
           ])
           && request.resource.data.status == "review"
           && request.resource.data.createdBy == request.auth.uid
-          && request.resource.data.sellerEmail == resource.data.sellerEmail
+          && request.resource.data.sellerEmail == request.auth.token.email
           && request.resource.data.capacity is int
           && request.resource.data.capacity >= resource.data.sold
           && request.resource.data.price is int
