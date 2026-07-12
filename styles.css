@@ -1047,9 +1047,102 @@ button.is-loading {
   margin-bottom: 14px;
 }
 
+.split-title {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.split-title > div {
+  display: grid;
+  gap: 4px;
+}
+
 .section-title span {
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.soft-count,
+.user-id-pill,
+.role-pill {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  min-height: 28px;
+  padding: 0 12px;
+  width: fit-content;
+}
+
+.soft-count {
+  background: rgba(192, 38, 211, 0.14);
+  color: var(--magenta);
+}
+
+.user-id-pill {
+  background: rgba(168, 85, 247, 0.14);
+  color: var(--purple);
+}
+
+.role-pill {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--teal);
+}
+
+.admin-search-box {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.admin-search-box span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.admin-search-box input {
+  width: 100%;
+}
+
+.admin-activity-feed {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-activity-item {
+  align-items: flex-start;
+  background: rgba(168, 85, 247, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.admin-activity-item div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-activity-item span,
+.admin-activity-item small {
+  color: var(--muted);
+}
+
+.admin-activity-item small {
+  display: grid;
+  justify-items: end;
+  min-width: 110px;
+}
+
+.admin-activity-item small b {
+  color: var(--magenta);
 }
 
 .table-wrap {
@@ -1794,6 +1887,64 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
+.purchased-ticket-section {
+  margin-top: 24px;
+}
+
+.purchased-ticket-list {
+  display: grid;
+  gap: 12px;
+}
+
+.purchased-ticket-card {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.74);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 16px;
+}
+
+.light-theme .purchased-ticket-card {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.purchased-ticket-info {
+  display: grid;
+  gap: 6px;
+}
+
+.purchased-ticket-info strong {
+  font-size: 1rem;
+}
+
+.purchased-ticket-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.purchased-ticket-id {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.ticket-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.ticket-actions .table-button {
+  text-decoration: none;
+}
+
 .event-card {
   overflow: hidden;
 }
@@ -2245,6 +2396,10 @@ textarea {
   z-index: 1001;
 }
 
+.seller-profile-dialog label + label {
+  margin-top: 18px;
+}
+
 .muted-copy {
   color: var(--muted);
   line-height: 1.6;
@@ -2664,16 +2819,31 @@ textarea {
   .landing-grid,
   .form-row,
   .voucher-form,
+  .purchased-ticket-card,
   .seller-agreement,
   .seller-event {
     grid-template-columns: 1fr;
   }
 
+  .ticket-actions {
+    justify-content: stretch;
+  }
+
+  .ticket-actions .table-button {
+    flex: 1 1 140px;
+  }
+
   .topbar,
   .panel-heading,
-  .section-title {
+  .section-title,
+  .split-title,
+  .admin-activity-item {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .admin-activity-item small {
+    justify-items: start;
   }
 
   .panel-actions,

@@ -8,6 +8,7 @@ import {
   getEvents,
   getOrders,
   getOrganizations,
+  getUsers,
   getUserProfile,
   ensureUserProfile,
   loginUser,
@@ -42,6 +43,7 @@ const state = {
   activePanel: "home",
   activeFilter: "All",
   searchQuery: "",
+  adminUserQuery: "",
   authRole: "buyer",
   authMode: "login",
   activeSlide: 0,
@@ -60,7 +62,8 @@ const state = {
   modalHistoryOpen: false,
   organizations: [],
   events: [],
-  orders: []
+  orders: [],
+  users: []
 };
 
 const roleLabels = {
@@ -107,7 +110,12 @@ const elements = {
   metricOrgShare: document.querySelector("#metricOrgShare"),
   metricFee: document.querySelector("#metricFee"),
   adminOrgRows: document.querySelector("#adminOrgRows"),
+  adminUserSearch: document.querySelector("#adminUserSearch"),
+  adminUserRows: document.querySelector("#adminUserRows"),
+  adminUserCount: document.querySelector("#adminUserCount"),
   adminEventRows: document.querySelector("#adminEventRows"),
+  adminActivityFeed: document.querySelector("#adminActivityFeed"),
+  adminActivityCount: document.querySelector("#adminActivityCount"),
   eventSalesRows: document.querySelector("#eventSalesRows"),
   eventSalesSummary: document.querySelector("#eventSalesSummary"),
   pendingOrgCount: document.querySelector("#pendingOrgCount"),
@@ -135,6 +143,9 @@ const elements = {
   filterPills: document.querySelectorAll(".filter-pill"),
   buyerSearch: document.querySelector("#buyerSearch"),
   buyerEventGrid: document.querySelector("#buyerEventGrid"),
+  purchasedTicketSection: document.querySelector("#purchasedTicketSection"),
+  purchasedTicketList: document.querySelector("#purchasedTicketList"),
+  purchasedTicketCount: document.querySelector("#purchasedTicketCount"),
   checkoutEvent: document.querySelector("#checkoutEvent"),
   selectedEventStatus: document.querySelector("#selectedEventStatus"),
   buyerName: document.querySelector("#buyerName"),
@@ -466,7 +477,8 @@ function statusLabel(value) {
     review: "In review",
     live: "Live",
     paused: "Hidden",
-    rejected: "Rejected"
+    rejected: "Rejected",
+    confirmed: "Confirmed"
   };
   return labels[status] || status;
 }
@@ -704,7 +716,40 @@ function ticketVerifyUrl(order, event) {
     qty: String(order.quantity || 1),
     paid: String(Math.round(Number(order.gross || 0)))
   });
-  return `${window.location.origin}${window.location.pathname}#verify-ticket?${params.toString()}`;
+  const url = new URL(`${window.location.origin}${window.location.pathname}`);
+  url.searchParams.set("verify-ticket", "1");
+  params.forEach((value, key) => url.searchParams.set(key, value));
+  return url.toString();
+}
+
+function orderCreatedMillis(order) {
+  const createdAt = order?.createdAt;
+  if (createdAt?.toMillis) return createdAt.toMillis();
+  if (createdAt?.seconds) return createdAt.seconds * 1000;
+  const parsed = Date.parse(createdAt);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function ticketFromOrder(order) {
+  const event = getEvent(order.eventId) || {
+    id: order.eventId || "",
+    title: order.eventTitle || "Tickolas event",
+    category: order.eventCategory || "Event",
+    date: order.eventDate || "",
+    venue: order.eventVenue || "Venue to be announced",
+    price: Number(order.gross || 0) / Math.max(Number(order.quantity || 1), 1),
+    organizerName: order.organizerName || "Organizer",
+    imageUrl: order.eventImageUrl || ""
+  };
+  const org = getOrg(event.orgId) || { name: organizerName(event) };
+  return { order, event, org };
+}
+
+function buyerPurchasedOrders() {
+  if (!state.currentUser) return [];
+  return state.orders
+    .filter((order) => !order.userId || order.userId === state.currentUser.uid)
+    .sort((left, right) => orderCreatedMillis(right) - orderCreatedMillis(left));
 }
 
 function qrAppendBits(buffer, value, length) {
@@ -832,10 +877,18 @@ function ticketQrPayload(order, event) {
 }
 
 function handleTicketVerificationHash() {
-  if (!window.location.hash.startsWith("#verify-ticket?")) return;
-  if (state.lastVerificationHash === window.location.hash) return;
-  state.lastVerificationHash = window.location.hash;
-  const params = new URLSearchParams(window.location.hash.replace("#verify-ticket?", ""));
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashRoute = window.location.hash.startsWith("#verify-ticket?");
+  const queryRoute = searchParams.get("verify-ticket") === "1";
+  if (!hashRoute && !queryRoute) return;
+
+  const routeKey = queryRoute ? window.location.search : window.location.hash;
+  if (state.lastVerificationHash === routeKey) return;
+  state.lastVerificationHash = routeKey;
+
+  const params = queryRoute
+    ? searchParams
+    : new URLSearchParams(window.location.hash.replace("#verify-ticket?", ""));
   const message = [
     "Tickolas ticket verification",
     `Ticket ID: ${params.get("id") || "N/A"}`,
@@ -1254,15 +1307,17 @@ async function loadData() {
     const admin = isAdminUser();
     const seller = userRole() === "seller";
     const publicOnly = !state.currentUser || userRole() === "buyer";
-    const [organizations, events, orders] = await Promise.all([
+    const [organizations, events, orders, users] = await Promise.all([
       getOrganizations({ publicOnly, ownerId: seller ? state.currentUser.uid : "" }),
       getEvents({ publicOnly, ownerId: seller ? state.currentUser.uid : "" }),
-      getOrders({ userId: state.currentUser?.uid || "", admin })
+      getOrders({ userId: state.currentUser?.uid || "", admin }),
+      admin ? getUsers().catch(() => []) : Promise.resolve([])
     ]);
 
     state.organizations = organizations;
     state.events = events;
     state.orders = orders;
+    state.users = users;
     render();
   } catch (error) {
     showToast(error.message);
@@ -1355,7 +1410,124 @@ function renderMetrics() {
   elements.metricFee.textContent = money(totals.fee);
 }
 
+function recordTime(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  return new Date(value).getTime() || 0;
+}
+
+function recordDate(value) {
+  const time = recordTime(value);
+  return time ? new Date(time).toLocaleDateString("en-GB") : "New";
+}
+
+function roleName(role = "") {
+  return { admin: "Admin", seller: "Seller", buyer: "Buyer" }[role] || "User";
+}
+
+function profileUserCode(profile = {}) {
+  if (profile.userCode) return profile.userCode;
+  const prefix = profile.role === "admin" ? "ADM" : profile.role === "seller" ? "SEL" : "BUY";
+  const shortId = String(profile.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 6).toUpperCase();
+  return `${prefix}-${shortId || "USER"}`;
+}
+
+function profileName(profile = {}) {
+  return String(profile.displayName || profile.name || (profile.email ? profile.email.split("@")[0] : "Unnamed user")).trim();
+}
+
+function eventTitle(eventId) {
+  return state.events.find((event) => event.id === eventId)?.title || "Unknown event";
+}
+
+function renderAdminUsers() {
+  if (!elements.adminUserRows) return;
+
+  const queryText = state.adminUserQuery;
+  const users = [...state.users]
+    .sort((a, b) => recordTime(b.createdAt) - recordTime(a.createdAt))
+    .filter((profile) => {
+      const haystack = [
+        profile.email,
+        profile.displayName,
+        profile.role,
+        profileUserCode(profile),
+        profile.id
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return !queryText || haystack.includes(queryText);
+    });
+
+  elements.adminUserCount.textContent = `${users.length} account${users.length === 1 ? "" : "s"}`;
+  elements.adminUserRows.innerHTML = users.length
+    ? users
+        .map((profile) => `
+          <tr>
+            <td><span class="user-id-pill">${escapeHtml(profileUserCode(profile))}</span></td>
+            <td>${escapeHtml(profileName(profile))}</td>
+            <td>${escapeHtml(profile.email || "No email")}</td>
+            <td><span class="role-pill">${escapeHtml(roleName(profile.role))}</span></td>
+            <td>${recordDate(profile.createdAt)}</td>
+          </tr>
+        `)
+        .join("")
+    : `
+      <tr>
+        <td colspan="5" class="muted-cell">No account matched.</td>
+      </tr>
+    `;
+}
+
+function renderAdminActivity() {
+  if (!elements.adminActivityFeed) return;
+
+  const activities = [
+    ...state.users.map((profile) => ({
+      kind: "Account",
+      title: `${roleName(profile.role)} account created`,
+      detail: `${profileName(profile)} - ${profile.email || profileUserCode(profile)}`,
+      time: profile.createdAt
+    })),
+    ...state.events.map((event) => ({
+      kind: "Event",
+      title: `${event.title || "Untitled event"} created`,
+      detail: `${organizerName(event)} - ${event.category || "Event"} - ${event.status || "review"}`,
+      time: event.createdAt || event.updatedAt
+    })),
+    ...state.orders.map((order) => ({
+      kind: "Ticket",
+      title: "Ticket purchased",
+      detail: `${order.buyerName || order.buyerEmail || "Buyer"} bought ${order.quantity || 1} ticket(s) for ${eventTitle(order.eventId)} - ${money(order.gross || 0)}`,
+      time: order.createdAt
+    }))
+  ]
+    .filter((item) => recordTime(item.time))
+    .sort((a, b) => recordTime(b.time) - recordTime(a.time))
+    .slice(0, 24);
+
+  elements.adminActivityCount.textContent = `${activities.length} update${activities.length === 1 ? "" : "s"}`;
+  elements.adminActivityFeed.innerHTML = activities.length
+    ? activities
+        .map((item) => `
+          <article class="admin-activity-item">
+            <div>
+              <strong>${escapeHtml(item.title)}</strong>
+              <span>${escapeHtml(item.detail)}</span>
+            </div>
+            <small><b>${escapeHtml(item.kind)}</b>${recordDate(item.time)}</small>
+          </article>
+        `)
+        .join("")
+    : `<p class="muted-cell">No activity yet.</p>`;
+}
+
 function renderAdmin() {
+  renderAdminUsers();
+  renderAdminActivity();
+
   const actionQueueEvents = state.events.filter((event) => ["review", "paused", "rejected"].includes(event.status || "review"));
   const pending = actionQueueEvents.length;
   elements.pendingOrgCount.textContent = `${pending} pending`;
@@ -1809,6 +1981,42 @@ function renderBuyer() {
     : `<p class="empty-state">No live events found.</p>`;
 
   renderCheckout();
+  renderPurchasedTickets();
+}
+
+function renderPurchasedTickets() {
+  if (!elements.purchasedTicketSection || !elements.purchasedTicketList) return;
+  const orders = userRole() === "buyer" ? buyerPurchasedOrders() : [];
+  elements.purchasedTicketSection.hidden = userRole() !== "buyer";
+  if (elements.purchasedTicketCount) {
+    elements.purchasedTicketCount.textContent = `${orders.length} ticket${orders.length === 1 ? "" : "s"}`;
+  }
+  elements.purchasedTicketList.innerHTML = orders.length
+    ? orders.map(renderPurchasedTicketCard).join("")
+    : `<p class="empty-state">No purchased ticket yet.</p>`;
+}
+
+function renderPurchasedTicketCard(order) {
+  const { event } = ticketFromOrder(order);
+  const quantity = Number(order.quantity || 1);
+  return `
+    <article class="purchased-ticket-card">
+      <div class="purchased-ticket-info">
+        <strong>${escapeHtml(event.title || "Tickolas ticket")}</strong>
+        <div class="purchased-ticket-meta">
+          <span>${dateLabel(event.date)}</span>
+          <span>${quantity} ticket${quantity > 1 ? "s" : ""}</span>
+          <span>${money(order.gross || 0)}</span>
+          <span>${escapeHtml(statusLabel(order.status || "confirmed"))}</span>
+        </div>
+        <span class="purchased-ticket-id">Ticket ID: ${escapeHtml(order.id)}</span>
+      </div>
+      <div class="ticket-actions">
+        <a class="table-button secondary" href="${escapeHtml(ticketVerifyUrl(order, event))}" target="_blank" rel="noreferrer">Verify</a>
+        <button class="table-button" type="button" data-action="download-purchased-ticket" data-order-id="${escapeHtml(order.id)}">Download PDF</button>
+      </div>
+    </article>
+  `;
 }
 
 function renderEventCard(event) {
@@ -2761,6 +2969,10 @@ function updateSearchQuery(value) {
 
 elements.homeSearch.addEventListener("input", (event) => updateSearchQuery(event.target.value));
 elements.buyerSearch.addEventListener("input", (event) => updateSearchQuery(event.target.value));
+elements.adminUserSearch?.addEventListener("input", (event) => {
+  state.adminUserQuery = event.target.value.trim().toLowerCase();
+  renderAdminUsers();
+});
 
 elements.buyerEventGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action='select-event']");
@@ -2889,6 +3101,22 @@ elements.receiptOutput.addEventListener("click", async (event) => {
   if (!button || !state.lastTicket) return;
   try {
     await runButtonAction(button, "Preparing PDF...", () => downloadTicketPdf(state.lastTicket));
+  } catch (error) {
+    showToast(error.message || "Could not prepare ticket PDF.");
+  }
+});
+
+elements.purchasedTicketList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-action='download-purchased-ticket']");
+  if (!button) return;
+  const order = state.orders.find((item) => item.id === button.dataset.orderId);
+  if (!order) {
+    showToast("Ticket not found.");
+    return;
+  }
+
+  try {
+    await runButtonAction(button, "Preparing PDF...", () => downloadTicketPdf(ticketFromOrder(order)));
   } catch (error) {
     showToast(error.message || "Could not prepare ticket PDF.");
   }

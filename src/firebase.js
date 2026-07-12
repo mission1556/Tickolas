@@ -70,6 +70,16 @@ function byCreatedAtDesc(a, b) {
   return timeValue(b.createdAt) - timeValue(a.createdAt);
 }
 
+function compactUserCode(role = "buyer", uid = "") {
+  const prefix = role === "admin" ? "ADM" : role === "seller" ? "SEL" : "BUY";
+  const source = String(uid || Math.random().toString(36).slice(2, 10))
+    .replace(/[^a-z0-9]/gi, "")
+    .slice(0, 8)
+    .toUpperCase();
+
+  return `${prefix}-${source || Date.now().toString(36).toUpperCase()}`;
+}
+
 function byDateAsc(a, b) {
   return new Date(a.date).getTime() - new Date(b.date).getTime();
 }
@@ -92,12 +102,21 @@ export async function getUserProfile(uid) {
 
 export async function ensureUserProfile(user, role) {
   const existingProfile = await getUserProfile(user.uid);
-  if (existingProfile) return existingProfile;
+  if (existingProfile) {
+    if (!existingProfile.userCode) {
+      const userCode = compactUserCode(existingProfile.role || role, user.uid);
+      await updateDoc(doc(db, "users", user.uid), { userCode });
+      return { ...existingProfile, userCode };
+    }
+
+    return existingProfile;
+  }
 
   const profile = {
     email: user.email || "",
     role,
     displayName: user.displayName || "",
+    userCode: compactUserCode(role, user.uid),
     createdAt: serverTimestamp()
   };
   await setDoc(doc(db, "users", user.uid), profile);
@@ -111,9 +130,15 @@ export async function registerUser({ email, password, role, displayName = "", da
     role,
     displayName: String(displayName || "").trim(),
     dateOfBirth: String(dateOfBirth || "").trim(),
+    userCode: compactUserCode(role, credential.user.uid),
     createdAt: serverTimestamp()
   });
   return credential.user;
+}
+
+export async function getUsers() {
+  const snapshot = await getDocs(query(collection(db, "users")));
+  return fromSnap(snapshot).sort(byCreatedAtDesc);
 }
 
 export async function updateUserProfileInfo({ displayName = "", dateOfBirth = "" }) {

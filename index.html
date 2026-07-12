@@ -115,6 +115,34 @@
           </section>
 
           <section class="workspace-section">
+            <div class="section-title split-title">
+              <div>
+                <h3>Account directory</h3>
+                <span>Search every admin, buyer, and seller account by email or Tickolas ID</span>
+              </div>
+              <strong id="adminUserCount" class="soft-count">0 accounts</strong>
+            </div>
+            <label class="admin-search-box">
+              <span>Search accounts</span>
+              <input id="adminUserSearch" type="search" placeholder="Search by Gmail, user ID, name, or role">
+            </label>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUserRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="workspace-section">
             <div class="section-title">
               <h3>Approval panel</h3>
               <span>Review seller event requests before buyers see them</span>
@@ -199,6 +227,17 @@
               </table>
             </div>
           </section>
+
+          <section class="workspace-section">
+            <div class="section-title split-title">
+              <div>
+                <h3>Notification bar</h3>
+                <span>Newest accounts, event requests, and ticket purchases</span>
+              </div>
+              <strong id="adminActivityCount" class="soft-count">0 updates</strong>
+            </div>
+            <div class="admin-activity-feed" id="adminActivityFeed"></div>
+          </section>
         </section>
 
         <!-- 5. Seller panel -->
@@ -256,12 +295,16 @@
               </label>
               <label>
                 <span>Category</span>
-                <select name="category" required>
-                  <option>Conference</option>
-                  <option>Concert</option>
-                  <option>Workshop</option>
-                  <option>Charity</option>
-                </select>
+                <input name="category" type="text" list="eventCategorySuggestions" required placeholder="Conference, Tour, Sports, Workshop...">
+                <datalist id="eventCategorySuggestions">
+                  <option value="Conference"></option>
+                  <option value="Concert"></option>
+                  <option value="Workshop"></option>
+                  <option value="Charity"></option>
+                  <option value="Tour"></option>
+                  <option value="Sports"></option>
+                  <option value="Festival"></option>
+                </datalist>
               </label>
               <label>
                 <span>Venue</span>
@@ -380,6 +423,17 @@
           <div class="buyer-layout">
             <section class="event-grid" id="buyerEventGrid"></section>
           </div>
+
+          <section class="purchased-ticket-section" id="purchasedTicketSection">
+            <div class="section-title">
+              <div>
+                <h3>Purchased Ticket</h3>
+                <span>Download your confirmed tickets again anytime</span>
+              </div>
+              <span id="purchasedTicketCount">0 tickets</span>
+            </div>
+            <div class="purchased-ticket-list" id="purchasedTicketList"></div>
+          </section>
         </section>
       </main>
     </div>
