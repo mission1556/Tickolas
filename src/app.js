@@ -1228,15 +1228,22 @@ function authErrorMessage(error) {
 }
 
 async function runButtonAction(button, label, action) {
-  const originalText = button.textContent;
+  const originalHtml = button.innerHTML;
   button.disabled = true;
   button.classList.add("is-loading");
-  button.textContent = label;
+  if (button.classList.contains("google-auth-button")) {
+    button.innerHTML = `
+      <img class="google-mark" src="assets/google-g.svg" alt="" aria-hidden="true">
+      ${escapeHtml(label)}
+    `;
+  } else {
+    button.textContent = label;
+  }
 
   try {
     await action();
   } finally {
-    button.textContent = originalText;
+    button.innerHTML = originalHtml;
     button.disabled = false;
     button.classList.remove("is-loading");
   }
@@ -1625,11 +1632,16 @@ function renderScannerServiceOptions() {
     state.scannerService = services[0]?.key || "entry";
   }
 
-  elements.serviceToggleGrid.innerHTML = services.map((service) => `
-    <button class="service-toggle ${service.key === state.scannerService ? "active" : ""}" type="button" data-service="${escapeHtml(service.key)}">
-      ${escapeHtml(service.label)}
-    </button>
-  `).join("");
+  elements.serviceToggleGrid.innerHTML = services.map((service) => {
+    const checked = service.key === state.scannerService ? "checked" : "";
+    const optionId = `scanner-service-${escapeHtml(service.key)}`;
+    return `
+      <input class="cir-tabs__r" id="${optionId}" type="radio" name="scannerService" value="${escapeHtml(service.key)}" ${checked}>
+      <label class="cir-tabs__t service-toggle ${checked ? "active" : ""}" for="${optionId}" data-service="${escapeHtml(service.key)}">
+        ${escapeHtml(service.label)}
+      </label>
+    `;
+  }).join("");
 
   elements.scannerModuleManager.innerHTML = renderScannerModuleManager();
 }
@@ -2547,6 +2559,8 @@ elements.serviceToggleGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-service]");
   if (!button) return;
   state.scannerService = button.dataset.service;
+  const input = button.previousElementSibling;
+  if (input?.matches(".cir-tabs__r")) input.checked = true;
   elements.serviceToggleGrid.querySelectorAll("[data-service]").forEach((item) => {
     item.classList.toggle("active", item === button);
   });
