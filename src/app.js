@@ -3,6 +3,7 @@ import {
   approveEvent,
   createEvent,
   createOrder,
+  deleteCurrentAccount,
   deleteEvent,
   deleteOrganization,
   getEvents,
@@ -187,10 +188,30 @@ const elements = {
   authSwitch: document.querySelector("#authSwitch"),
   sellerProfileModal: document.querySelector("#sellerProfileModal"),
   sellerProfileForm: document.querySelector("#sellerProfileForm"),
+  sellerProfileEyebrow: document.querySelector("#sellerProfileEyebrow"),
+  sellerProfileTitle: document.querySelector("#sellerProfileTitle"),
+  sellerProfileCopy: document.querySelector("#sellerProfileCopy"),
+  sellerProfileNameLabel: document.querySelector("#sellerProfileNameLabel"),
   sellerProfileName: document.querySelector("#sellerProfileName"),
   sellerProfileDob: document.querySelector("#sellerProfileDob"),
   sellerProfileMessage: document.querySelector("#sellerProfileMessage"),
   sellerProfileSubmit: document.querySelector("#sellerProfileSubmit"),
+  accountModal: document.querySelector("#accountModal"),
+  closeAccountModal: document.querySelector("#closeAccountModal"),
+  accountPanelName: document.querySelector("#accountPanelName"),
+  accountPanelEmail: document.querySelector("#accountPanelEmail"),
+  accountPanelRole: document.querySelector("#accountPanelRole"),
+  accountPanelUserId: document.querySelector("#accountPanelUserId"),
+  accountPanelDob: document.querySelector("#accountPanelDob"),
+  accountPanelTicketTotal: document.querySelector("#accountPanelTicketTotal"),
+  accountTicketCount: document.querySelector("#accountTicketCount"),
+  accountTicketList: document.querySelector("#accountTicketList"),
+  deleteAccountButton: document.querySelector("#deleteAccountButton"),
+  deleteAccountConfirm: document.querySelector("#deleteAccountConfirm"),
+  deleteAccountText: document.querySelector("#deleteAccountText"),
+  confirmDeleteAccount: document.querySelector("#confirmDeleteAccount"),
+  cancelDeleteAccount: document.querySelector("#cancelDeleteAccount"),
+  deleteAccountMessage: document.querySelector("#deleteAccountMessage"),
   scannerModuleManager: document.querySelector("#scannerModuleManager"),
   passwordToggles: document.querySelectorAll("[data-toggle-password]"),
   toast: document.querySelector("#toast")
@@ -279,6 +300,7 @@ function hidePageLoader() {
 function isAnyModalOpen() {
   return !elements.authModal.hidden
     || !elements.sellerProfileModal.hidden
+    || !elements.accountModal.hidden
     || !elements.eventDetailsModal.hidden
     || !elements.eventPreviewPanel.hidden
     || !elements.checkoutPanel.hidden;
@@ -308,6 +330,7 @@ function pushModalHistory() {
 function closeAllModalsFromHistory() {
   elements.authModal.hidden = true;
   elements.sellerProfileModal.hidden = true;
+  elements.accountModal.hidden = true;
   elements.eventDetailsModal.hidden = true;
   elements.eventPreviewPanel.hidden = true;
   elements.checkoutPanel.hidden = true;
@@ -1331,6 +1354,9 @@ function render() {
   renderAdmin();
   renderSeller();
   renderBuyer();
+  if (elements.accountModal && !elements.accountModal.hidden) {
+    renderAccountPanel();
+  }
 }
 
 function renderNavigation() {
@@ -1505,8 +1531,7 @@ function renderAdminActivity() {
     }))
   ]
     .filter((item) => recordTime(item.time))
-    .sort((a, b) => recordTime(b.time) - recordTime(a.time))
-    .slice(0, 24);
+    .sort((a, b) => recordTime(b.time) - recordTime(a.time));
 
   elements.adminActivityCount.textContent = `${activities.length} update${activities.length === 1 ? "" : "s"}`;
   elements.adminActivityFeed.innerHTML = activities.length
@@ -1986,14 +2011,9 @@ function renderBuyer() {
 
 function renderPurchasedTickets() {
   if (!elements.purchasedTicketSection || !elements.purchasedTicketList) return;
-  const orders = userRole() === "buyer" ? buyerPurchasedOrders() : [];
-  elements.purchasedTicketSection.hidden = userRole() !== "buyer";
-  if (elements.purchasedTicketCount) {
-    elements.purchasedTicketCount.textContent = `${orders.length} ticket${orders.length === 1 ? "" : "s"}`;
-  }
-  elements.purchasedTicketList.innerHTML = orders.length
-    ? orders.map(renderPurchasedTicketCard).join("")
-    : `<p class="empty-state">No purchased ticket yet.</p>`;
+  elements.purchasedTicketSection.hidden = true;
+  elements.purchasedTicketList.innerHTML = "";
+  if (elements.purchasedTicketCount) elements.purchasedTicketCount.textContent = "0 tickets";
 }
 
 function renderPurchasedTicketCard(order) {
@@ -2012,11 +2032,84 @@ function renderPurchasedTicketCard(order) {
         <span class="purchased-ticket-id">Ticket ID: ${escapeHtml(order.id)}</span>
       </div>
       <div class="ticket-actions">
-        <a class="table-button secondary" href="${escapeHtml(ticketVerifyUrl(order, event))}" target="_blank" rel="noreferrer">Verify</a>
         <button class="table-button" type="button" data-action="download-purchased-ticket" data-order-id="${escapeHtml(order.id)}">Download PDF</button>
       </div>
     </article>
   `;
+}
+
+function orderCreatedAtValue(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  return new Date(value).getTime() || 0;
+}
+
+function accountOrders() {
+  if (!state.currentUser) return [];
+  const email = String(state.currentUser.email || "").toLowerCase();
+  return state.orders
+    .filter((order) => (
+      order.userId === state.currentUser.uid
+      || String(order.buyerEmail || "").toLowerCase() === email
+    ))
+    .sort((a, b) => orderCreatedAtValue(b.createdAt) - orderCreatedAtValue(a.createdAt));
+}
+
+function resetDeleteAccountConfirm() {
+  if (elements.deleteAccountConfirm) elements.deleteAccountConfirm.hidden = true;
+  if (elements.deleteAccountText) elements.deleteAccountText.value = "";
+  if (elements.deleteAccountMessage) {
+    elements.deleteAccountMessage.hidden = true;
+    elements.deleteAccountMessage.textContent = "";
+  }
+}
+
+function setDeleteAccountMessage(message) {
+  if (!elements.deleteAccountMessage) return;
+  elements.deleteAccountMessage.textContent = message;
+  elements.deleteAccountMessage.hidden = !message;
+}
+
+function renderAccountPanel() {
+  if (!elements.accountModal || !state.currentUser) return;
+  const profile = state.currentProfile || {};
+  const orders = accountOrders();
+  const ticketTotal = orders.reduce((sum, order) => sum + Number(order.quantity || 1), 0);
+  const name = profile.displayName || state.currentUser.displayName || userLabel();
+  if (elements.accountPanelName) elements.accountPanelName.textContent = name || "-";
+  if (elements.accountPanelEmail) elements.accountPanelEmail.textContent = state.currentUser.email || profile.email || "-";
+  if (elements.accountPanelRole) elements.accountPanelRole.textContent = statusLabel(profile.role || "buyer");
+  if (elements.accountPanelUserId) elements.accountPanelUserId.textContent = profile.userCode || state.currentUser.uid || "-";
+  if (elements.accountPanelDob) elements.accountPanelDob.textContent = profile.dateOfBirth ? dateLabel(profile.dateOfBirth) : "-";
+  if (elements.accountPanelTicketTotal) elements.accountPanelTicketTotal.textContent = String(ticketTotal);
+  if (elements.accountTicketCount) {
+    elements.accountTicketCount.textContent = `${orders.length} ticket${orders.length === 1 ? "" : "s"}`;
+  }
+  if (elements.accountTicketList) {
+    elements.accountTicketList.innerHTML = orders.length
+      ? orders.map(renderPurchasedTicketCard).join("")
+      : `<p class="empty-state">No purchased ticket yet.</p>`;
+  }
+}
+
+function openAccountModal() {
+  if (!state.currentUser) {
+    openAuthChoice();
+    return;
+  }
+  renderAccountPanel();
+  resetDeleteAccountConfirm();
+  elements.accountModal.hidden = false;
+  pushModalHistory();
+  syncModalState();
+}
+
+function closeAccountModal() {
+  if (!elements.accountModal) return;
+  elements.accountModal.hidden = true;
+  resetDeleteAccountConfirm();
+  syncModalState();
 }
 
 function renderEventCard(event) {
@@ -2154,8 +2247,9 @@ function closeAuthModal(clearPendingBuyerEvent = true) {
   syncModalState();
 }
 
-function sellerProfileNeedsInfo(profile = state.currentProfile) {
-  return profile?.role === "seller" && !String(profile.displayName || "").trim();
+function profileNeedsInfo(profile = state.currentProfile) {
+  if (!["buyer", "seller"].includes(profile?.role)) return false;
+  return !String(profile.displayName || "").trim() || !String(profile.dateOfBirth || "").trim();
 }
 
 function showSellerProfileMessage(message) {
@@ -2164,6 +2258,15 @@ function showSellerProfileMessage(message) {
 }
 
 function openSellerProfileModal() {
+  const isSeller = state.currentProfile?.role === "seller";
+  elements.sellerProfileEyebrow.textContent = isSeller ? "Seller info" : "Buyer info";
+  elements.sellerProfileTitle.textContent = "Update your info";
+  elements.sellerProfileCopy.textContent = isSeller
+    ? "Add your seller name and date of birth so buyers and the navbar show a professional organizer identity."
+    : "Add your name and date of birth so your ticket profile stays complete.";
+  elements.sellerProfileNameLabel.textContent = isSeller ? "Seller name" : "Name";
+  elements.sellerProfileName.placeholder = isSeller ? "Your seller or organization name" : "Your full name";
+  elements.sellerProfileSubmit.textContent = isSeller ? "Save seller info" : "Save buyer info";
   elements.sellerProfileName.value = String(state.currentProfile?.displayName || state.currentUser?.displayName || "").trim();
   elements.sellerProfileDob.value = String(state.currentProfile?.dateOfBirth || "").trim();
   showSellerProfileMessage("");
@@ -2179,7 +2282,7 @@ function closeSellerProfileModal() {
 }
 
 function promptSellerProfileIfNeeded() {
-  if (!sellerProfileNeedsInfo()) return;
+  if (!profileNeedsInfo()) return;
   if (!elements.sellerProfileModal.hidden) return;
   showToast("Update your info.");
   openSellerProfileModal();
@@ -2474,12 +2577,7 @@ elements.themeToggle.addEventListener("click", () => {
 
 elements.adminAccess.addEventListener("click", () => {
   if (state.currentUser) {
-    if (state.currentProfile?.role) {
-      routeToProfile(state.currentProfile);
-      render();
-      return;
-    }
-    showToast("User profile is missing. Please login again.");
+    openAccountModal();
     return;
   }
   openAuthForm("admin");
@@ -2584,11 +2682,11 @@ elements.sellerProfileForm.addEventListener("submit", async (event) => {
       await updateUserProfileInfo({ displayName, dateOfBirth });
       state.currentProfile = await getUserProfile(state.currentUser.uid);
       closeSellerProfileModal();
-      showToast("Seller info updated.");
+      showToast("Profile info updated.");
       render();
     });
   } catch (error) {
-    showSellerProfileMessage(error.message || "Could not update seller info.");
+    showSellerProfileMessage(error.message || "Could not update profile info.");
   }
 });
 
@@ -3106,7 +3204,7 @@ elements.receiptOutput.addEventListener("click", async (event) => {
   }
 });
 
-elements.purchasedTicketList?.addEventListener("click", async (event) => {
+async function handlePurchasedTicketDownload(event) {
   const button = event.target.closest("[data-action='download-purchased-ticket']");
   if (!button) return;
   const order = state.orders.find((item) => item.id === button.dataset.orderId);
@@ -3119,6 +3217,43 @@ elements.purchasedTicketList?.addEventListener("click", async (event) => {
     await runButtonAction(button, "Preparing PDF...", () => downloadTicketPdf(ticketFromOrder(order)));
   } catch (error) {
     showToast(error.message || "Could not prepare ticket PDF.");
+  }
+}
+
+elements.purchasedTicketList?.addEventListener("click", handlePurchasedTicketDownload);
+elements.accountTicketList?.addEventListener("click", handlePurchasedTicketDownload);
+
+elements.closeAccountModal?.addEventListener("click", closeAccountModal);
+elements.accountModal?.addEventListener("click", (event) => {
+  if (event.target.matches("[data-close-account]")) closeAccountModal();
+});
+
+elements.deleteAccountButton?.addEventListener("click", () => {
+  resetDeleteAccountConfirm();
+  elements.deleteAccountConfirm.hidden = false;
+  elements.deleteAccountText.focus();
+});
+
+elements.cancelDeleteAccount?.addEventListener("click", resetDeleteAccountConfirm);
+
+elements.confirmDeleteAccount?.addEventListener("click", async () => {
+  if (String(elements.deleteAccountText.value || "").trim() !== "DELETE") {
+    setDeleteAccountMessage("Type DELETE to confirm account delete.");
+    return;
+  }
+
+  try {
+    await runButtonAction(elements.confirmDeleteAccount, "Deleting...", async () => {
+      await deleteCurrentAccount();
+    });
+    closeAccountModal();
+    state.currentUser = null;
+    state.currentProfile = null;
+    state.orders = [];
+    changePanel("home");
+    showToast("Account deleted.");
+  } catch (error) {
+    setDeleteAccountMessage(error.message || "Could not delete account.");
   }
 });
 
@@ -3139,6 +3274,8 @@ document.addEventListener("keydown", (event) => {
     closeCheckoutModal();
   } else if (!elements.eventPreviewPanel.hidden) {
     closeEventPreviewModal();
+  } else if (!elements.accountModal.hidden) {
+    closeAccountModal();
   } else if (!elements.authModal.hidden) {
     closeAuthModal();
   } else if (!elements.eventDetailsModal.hidden) {

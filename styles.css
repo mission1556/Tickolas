@@ -1112,6 +1112,10 @@ button.is-loading {
 .admin-activity-feed {
   display: grid;
   gap: 12px;
+  max-height: 540px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
 }
 
 .admin-activity-item {
@@ -1147,6 +1151,20 @@ button.is-loading {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.account-directory-scroll {
+  max-height: 620px;
+  overflow: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+}
+
+.account-directory-scroll thead th {
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 table {
@@ -2400,6 +2418,101 @@ textarea {
   margin-top: 18px;
 }
 
+.account-dialog {
+  max-height: min(88vh, 820px);
+  max-width: 860px;
+  overflow: auto;
+  width: min(calc(100vw - 32px), 860px);
+}
+
+.account-panel-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 20px 0;
+}
+
+.account-info-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.account-info-card span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 900;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.account-info-card strong {
+  color: var(--text);
+  word-break: break-word;
+}
+
+.account-ticket-block {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.compact-title {
+  margin-bottom: 12px;
+}
+
+.account-ticket-list {
+  display: grid;
+  gap: 12px;
+  max-height: 300px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.danger-zone {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.danger-zone h3 {
+  margin: 0 0 4px;
+}
+
+.danger-zone p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.danger-button {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 14px 28px rgba(239, 68, 68, 0.24);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 10px 14px;
+}
+
+.delete-confirm {
+  display: grid;
+  gap: 12px;
+}
+
+.inline-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .muted-copy {
   color: var(--muted);
   line-height: 1.6;
@@ -2846,6 +2959,11 @@ textarea {
     justify-items: start;
   }
 
+  .account-directory-scroll,
+  .admin-activity-feed {
+    max-height: 520px;
+  }
+
   .panel-actions,
   .buyer-heading-tools {
     align-items: stretch;
@@ -2887,7 +3005,8 @@ textarea {
   }
 
   .checkout-modal,
-  .event-preview-modal {
+  .event-preview-modal,
+  .account-dialog {
     bottom: 12px;
     height: calc(100dvh - 24px);
     left: 12px;
@@ -2899,6 +3018,10 @@ textarea {
     top: 12px;
     transform: none;
     width: auto;
+  }
+
+  .account-panel-grid {
+    grid-template-columns: 1fr;
   }
 
   .checkout-backdrop {

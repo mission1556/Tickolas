@@ -174,6 +174,26 @@ export async function logoutUser() {
   await signOut(auth);
 }
 
+export async function deleteCurrentAccount() {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Please login first.");
+
+  const token = await user.getIdToken(true);
+  const response = await fetch(apiUrl("/api/users/delete-account"), {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({})
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Account delete failed.");
+
+  await signOut(auth).catch(() => {});
+  return payload;
+}
+
 export async function getOrganizations({ publicOnly = false, ownerId = "" } = {}) {
   const baseQuery = ownerId
     ? query(collection(db, "organizations"), where("ownerId", "==", ownerId))

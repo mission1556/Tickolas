@@ -668,6 +668,25 @@ async function saveEventApi(req, res) {
   sendJson(res, 200, { event: { id: eventId, ...payload } });
 }
 
+async function deleteAccountApi(req, res) {
+  const admin = getAdmin();
+  const user = await requireUser(req);
+  const db = admin.firestore();
+
+  await db.collection("users").doc(user.uid).set({
+    status: "deleted",
+    deletedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  try {
+    await admin.auth().deleteUser(user.uid);
+  } catch (error) {
+    if (error.code !== "auth/user-not-found") throw error;
+  }
+
+  sendJson(res, 200, { ok: true });
+}
+
 async function handleApi(req, res, url) {
   try {
     if (req.method === "OPTIONS") {
@@ -704,6 +723,11 @@ async function handleApi(req, res, url) {
 
     if (req.method === "POST" && url.pathname === "/api/organizations/save") {
       await saveSellerOrganizationApi(req, res);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/users/delete-account") {
+      await deleteAccountApi(req, res);
       return;
     }
 

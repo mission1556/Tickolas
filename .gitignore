@@ -64,6 +64,15 @@ node_modules/
 
 # dotenv environment variables file
 .env
+.env.*
+!.env.example
+
+# Private credentials - never commit these
+*service-account*.json
+*firebase-admin*.json
+*credentials*.json
+*secret*.json
+*.private-key.json
 
 # dataconnect generated files
 .dataconnect

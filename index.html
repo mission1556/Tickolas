@@ -115,34 +115,6 @@
           </section>
 
           <section class="workspace-section">
-            <div class="section-title split-title">
-              <div>
-                <h3>Account directory</h3>
-                <span>Search every admin, buyer, and seller account by email or Tickolas ID</span>
-              </div>
-              <strong id="adminUserCount" class="soft-count">0 accounts</strong>
-            </div>
-            <label class="admin-search-box">
-              <span>Search accounts</span>
-              <input id="adminUserSearch" type="search" placeholder="Search by Gmail, user ID, name, or role">
-            </label>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>User ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Joined</th>
-                  </tr>
-                </thead>
-                <tbody id="adminUserRows"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="workspace-section">
             <div class="section-title">
               <h3>Approval panel</h3>
               <span>Review seller event requests before buyers see them</span>
@@ -224,6 +196,34 @@
                   </tr>
                 </thead>
                 <tbody id="settlementRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="workspace-section">
+            <div class="section-title split-title">
+              <div>
+                <h3>Account directory</h3>
+                <span>Search every admin, buyer, and seller account by email or Tickolas ID</span>
+              </div>
+              <strong id="adminUserCount" class="soft-count">0 accounts</strong>
+            </div>
+            <label class="admin-search-box">
+              <span>Search accounts</span>
+              <input id="adminUserSearch" type="search" placeholder="Search by Gmail, user ID, name, or role">
+            </label>
+            <div class="table-wrap account-directory-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUserRows"></tbody>
               </table>
             </div>
           </section>
@@ -613,12 +613,12 @@
     <div class="auth-modal" id="sellerProfileModal" hidden>
       <div class="auth-backdrop"></div>
       <form class="auth-dialog seller-profile-dialog" id="sellerProfileForm" role="dialog" aria-modal="true" aria-labelledby="sellerProfileTitle">
-        <p class="eyebrow">Seller info</p>
+        <p class="eyebrow" id="sellerProfileEyebrow">Account info</p>
         <h2 id="sellerProfileTitle">Update your info</h2>
-        <p class="muted-copy">Add your seller name so buyers and the navbar show a professional organizer identity.</p>
+        <p class="muted-copy" id="sellerProfileCopy">Add your name and date of birth to complete your Tickolas profile.</p>
         <label>
-          <span>Seller name</span>
-          <input id="sellerProfileName" type="text" maxlength="80" required placeholder="Your seller or organization name">
+          <span id="sellerProfileNameLabel">Name</span>
+          <input id="sellerProfileName" type="text" maxlength="80" required placeholder="Your full name">
         </label>
         <label>
           <span>Date of birth</span>
@@ -627,6 +627,73 @@
         <p class="auth-message" id="sellerProfileMessage" hidden></p>
         <button class="primary-button" id="sellerProfileSubmit" type="submit">Save seller info</button>
       </form>
+    </div>
+
+    <div class="auth-modal" id="accountModal" hidden>
+      <div class="auth-backdrop" data-close-account></div>
+      <section class="auth-dialog account-dialog" role="dialog" aria-modal="true" aria-labelledby="accountPanelTitle">
+        <button class="close-button" id="closeAccountModal" type="button" aria-label="Close account panel">x</button>
+        <p class="eyebrow">Account center</p>
+        <h2 id="accountPanelTitle">Your Tickolas account</h2>
+        <p class="muted-copy">Manage your profile and purchased tickets from one place.</p>
+
+        <div class="account-panel-grid">
+          <article class="account-info-card">
+            <span>Name</span>
+            <strong id="accountPanelName">-</strong>
+          </article>
+          <article class="account-info-card">
+            <span>Email</span>
+            <strong id="accountPanelEmail">-</strong>
+          </article>
+          <article class="account-info-card">
+            <span>Role</span>
+            <strong id="accountPanelRole">-</strong>
+          </article>
+          <article class="account-info-card">
+            <span>User ID</span>
+            <strong id="accountPanelUserId">-</strong>
+          </article>
+          <article class="account-info-card">
+            <span>Date of birth</span>
+            <strong id="accountPanelDob">-</strong>
+          </article>
+          <article class="account-info-card">
+            <span>Tickets bought</span>
+            <strong id="accountPanelTicketTotal">0</strong>
+          </article>
+        </div>
+
+        <div class="account-ticket-block">
+          <div class="section-title compact-title">
+            <div>
+              <h3>Purchased tickets</h3>
+              <span>Your confirmed ticket history</span>
+            </div>
+            <span id="accountTicketCount">0 tickets</span>
+          </div>
+          <div class="purchased-ticket-list account-ticket-list" id="accountTicketList"></div>
+        </div>
+
+        <div class="danger-zone">
+          <div>
+            <h3>Delete account</h3>
+            <p>This removes your Tickolas login profile. Ticket orders may stay for verification and admin audit.</p>
+          </div>
+          <button class="danger-button" type="button" id="deleteAccountButton">Delete account</button>
+          <div class="delete-confirm" id="deleteAccountConfirm" hidden>
+            <label>
+              <span>Type DELETE to confirm</span>
+              <input id="deleteAccountText" type="text" placeholder="DELETE">
+            </label>
+            <div class="inline-actions">
+              <button class="danger-button" type="button" id="confirmDeleteAccount">Permanently delete</button>
+              <button class="table-button" type="button" id="cancelDeleteAccount">Cancel</button>
+            </div>
+            <p class="auth-message" id="deleteAccountMessage" hidden></p>
+          </div>
+        </div>
+      </section>
     </div>
 
     <!-- 10. Toast and scripts -->
