@@ -593,22 +593,6 @@ button.is-loading {
   transform: translateX(-100%);
 }
 
-.skeleton-text {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--panel) 92%, var(--purple)), color-mix(in srgb, var(--panel-soft) 88%, var(--teal)));
-  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--purple));
-  border-radius: 999px;
-  box-shadow: 0 24px 70px rgba(124, 58, 237, 0.28);
-  color: var(--ink);
-  display: inline-flex;
-  font-size: 0.92rem;
-  font-weight: 900;
-  justify-content: center;
-  letter-spacing: 0;
-  min-width: 220px;
-  padding: 12px 20px;
-  text-align: center;
-}
-
 @keyframes skeleton-shine {
   to {
     transform: translateX(100%);
@@ -2453,6 +2437,26 @@ textarea {
   word-break: break-word;
 }
 
+.account-info-card input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-weight: 900;
+  outline: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.account-info-card input:disabled {
+  color: var(--text);
+  opacity: 1;
+}
+
+.account-info-card input:focus {
+  box-shadow: 0 2px 0 var(--primary);
+}
+
 .account-ticket-block {
   border-top: 1px solid var(--line);
   margin-top: 18px;
@@ -3099,5 +3103,37 @@ textarea {
   .topbar {
     min-height: 360px;
     padding: 56px 20px 54px;
+  }
+}
+
+/* TICKOLAS_SELLER_ACCOUNT_PATCH_STYLE_20260715 */
+.seller-dashboard-shortcut,
+.seller-workspace-action {
+  width: auto;
+  min-width: 0;
+  padding: 0.72rem 1.05rem;
+  border-radius: 10px;
+  border: 1px solid rgba(189, 124, 255, 0.38);
+  background: linear-gradient(135deg, #8d5cff, #e15dff);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 14px 28px rgba(166, 83, 255, 0.22);
+}
+
+.seller-workspace-action {
+  margin-top: 16px;
+}
+
+.seller-account-profile [data-seller-workspace-action] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 720px) {
+  .seller-dashboard-shortcut {
+    width: 100%;
   }
 }

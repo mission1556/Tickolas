@@ -60,7 +60,22 @@
         </header>
 
         <div class="page-loader" id="pageLoader" hidden>
-          <span class="skeleton skeleton-text" id="pageLoaderText">Home Page is loading</span>
+          <div class="loader" aria-hidden="true">
+            <svg width="0" height="0" viewBox="0 0 100 100" focusable="false">
+              <defs>
+                <mask id="clipping" maskUnits="userSpaceOnUse">
+                  <polygon points="50 0 100 50 50 100 0 50"></polygon>
+                  <polygon points="50 10 90 50 50 90 10 50"></polygon>
+                  <polygon points="50 18 82 50 50 82 18 50"></polygon>
+                  <polygon points="50 26 74 50 50 74 26 50"></polygon>
+                  <polygon points="50 34 66 50 50 66 34 50"></polygon>
+                  <polygon points="50 42 58 50 50 58 42 50"></polygon>
+                  <polygon points="50 46 54 50 50 54 46 50"></polygon>
+                </mask>
+              </defs>
+            </svg>
+            <div class="box"></div>
+          </div>
         </div>
 
         <!-- 3. Home / landing page -->
@@ -252,6 +267,42 @@
               <a class="whatsapp-support" href="https://wa.me/8801766811996" target="_blank" rel="noreferrer" aria-label="Contact Tickolas support on WhatsApp">WhatsApp Support</a>
             </div>
           </div>
+
+          <form class="workspace-section seller-account-summary" id="sellerAccountSummary">
+            <div class="section-title">
+              <div>
+                <h3>Seller account</h3>
+                <span>Your seller profile and event activity</span>
+              </div>
+              <button class="table-button" id="sellerAccountSave" type="submit">Update your info</button>
+            </div>
+            <div class="account-panel-grid">
+              <article class="account-info-card">
+                <span>Name</span>
+                <input id="sellerAccountName" type="text" maxlength="80" required placeholder="Your seller name">
+              </article>
+              <article class="account-info-card">
+                <span>Email</span>
+                <strong id="sellerAccountEmail">-</strong>
+              </article>
+              <article class="account-info-card">
+                <span>Role</span>
+                <strong id="sellerAccountRole">Seller</strong>
+              </article>
+              <article class="account-info-card">
+                <span>User ID</span>
+                <strong id="sellerAccountUserId">-</strong>
+              </article>
+              <article class="account-info-card">
+                <span>Date of birth</span>
+                <input id="sellerAccountDob" type="date">
+              </article>
+              <article class="account-info-card">
+                <span>Events created</span>
+                <strong id="sellerAccountEventTotal">0</strong>
+              </article>
+            </div>
+          </form>
 
           <section class="workspace-section two-column">
             <article class="seller-agreement" id="sellerAgreement">

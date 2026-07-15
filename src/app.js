@@ -52,6 +52,7 @@ const state = {
   editingImageUrl: "",
   selectedEventId: "",
   pendingBuyerEventId: "",
+  sellerInfoEditing: false,
   scannerService: "entry",
   scannerBusy: false,
   scannerStream: null,
@@ -64,7 +65,9 @@ const state = {
   organizations: [],
   events: [],
   orders: [],
-  users: []
+  users: [],
+  accountEvents: [],
+  accountEventsOwnerId: ""
 };
 
 const roleLabels = {
@@ -95,7 +98,6 @@ const elements = {
   homeLink: document.querySelector("#homeLink"),
   topbar: document.querySelector(".topbar"),
   pageLoader: document.querySelector("#pageLoader"),
-  pageLoaderText: document.querySelector("#pageLoaderText"),
   themeToggle: document.querySelector("#themeToggle"),
   adminAccess: document.querySelector("#adminAccess"),
   openLogin: document.querySelector("#openLogin"),
@@ -122,6 +124,14 @@ const elements = {
   pendingOrgCount: document.querySelector("#pendingOrgCount"),
   settlementRows: document.querySelector("#settlementRows"),
   sellerAgreement: document.querySelector("#sellerAgreement"),
+  sellerAccountSummary: document.querySelector("#sellerAccountSummary"),
+  sellerAccountName: document.querySelector("#sellerAccountName"),
+  sellerAccountEmail: document.querySelector("#sellerAccountEmail"),
+  sellerAccountRole: document.querySelector("#sellerAccountRole"),
+  sellerAccountUserId: document.querySelector("#sellerAccountUserId"),
+  sellerAccountDob: document.querySelector("#sellerAccountDob"),
+  sellerAccountEventTotal: document.querySelector("#sellerAccountEventTotal"),
+  sellerAccountSave: document.querySelector("#sellerAccountSave"),
   agreeSellerTerms: document.querySelector("#agreeSellerTerms"),
   sellerEventList: document.querySelector("#sellerEventList"),
   sellerEventCount: document.querySelector("#sellerEventCount"),
@@ -279,10 +289,9 @@ function routeToProfile(profile) {
   }
 }
 
-function showPageLoader(panel = state.activePanel, duration = 520) {
-  if (!elements.pageLoader || !elements.pageLoaderText) return;
+function showPageLoader(_panel = state.activePanel, duration = 520) {
+  if (!elements.pageLoader) return;
   window.clearTimeout(pageLoaderTimer);
-  elements.pageLoaderText.textContent = `${pageNames[panel] || "Tickolas"} Page is loading`;
   elements.pageLoader.hidden = false;
   if (duration > 0) {
     pageLoaderTimer = window.setTimeout(() => {
@@ -351,6 +360,7 @@ function changePanel(panel) {
   state.activePanel = panel;
   showPageLoader(panel);
   render();
+  loadData();
 }
 
 function requireSignedIn(message = "Please login first.") {
@@ -1327,9 +1337,9 @@ async function runButtonAction(button, label, action) {
 
 async function loadData() {
   try {
-    const admin = isAdminUser();
-    const seller = userRole() === "seller";
-    const publicOnly = !state.currentUser || userRole() === "buyer";
+    const admin = isAdminUser() && state.activePanel === "admin";
+    const seller = userRole() === "seller" && state.activePanel === "seller";
+    const publicOnly = state.activePanel === "home" || !state.currentUser || userRole() === "buyer";
     const [organizations, events, orders, users] = await Promise.all([
       getOrganizations({ publicOnly, ownerId: seller ? state.currentUser.uid : "" }),
       getEvents({ publicOnly, ownerId: seller ? state.currentUser.uid : "" }),
@@ -1684,6 +1694,24 @@ function renderAdmin() {
 function renderSeller() {
   const ownEvents = state.events.filter((event) => !state.currentUser || event.createdBy === state.currentUser.uid);
   const hasAcceptedAgreement = sellerAgreementAccepted();
+  const profile = state.currentProfile || {};
+  const sellerName = profile.displayName || state.currentUser?.displayName || userLabel();
+
+  if (elements.sellerAccountName && !state.sellerInfoEditing && elements.sellerAccountName.value !== (sellerName || "")) {
+    elements.sellerAccountName.value = sellerName || "";
+  }
+  if (elements.sellerAccountName) elements.sellerAccountName.disabled = !state.sellerInfoEditing;
+  if (elements.sellerAccountEmail) elements.sellerAccountEmail.textContent = state.currentUser?.email || profile.email || "-";
+  if (elements.sellerAccountRole) elements.sellerAccountRole.textContent = statusLabel(profile.role || "seller");
+  if (elements.sellerAccountUserId) elements.sellerAccountUserId.textContent = profile.userCode || state.currentUser?.uid || "-";
+  if (elements.sellerAccountDob && !state.sellerInfoEditing && elements.sellerAccountDob.value !== String(profile.dateOfBirth || "")) {
+    elements.sellerAccountDob.value = String(profile.dateOfBirth || "");
+  }
+  if (elements.sellerAccountDob) elements.sellerAccountDob.disabled = !state.sellerInfoEditing;
+  if (elements.sellerAccountEventTotal) elements.sellerAccountEventTotal.textContent = String(ownEvents.length);
+  if (elements.sellerAccountSave) {
+    elements.sellerAccountSave.textContent = state.sellerInfoEditing ? "Save info" : "Update your info";
+  }
 
   elements.sellerAgreement.hidden = hasAcceptedAgreement;
   elements.eventForm.hidden = !hasAcceptedAgreement;
@@ -2056,6 +2084,25 @@ function accountOrders() {
     .sort((a, b) => orderCreatedAtValue(b.createdAt) - orderCreatedAtValue(a.createdAt));
 }
 
+function sellerAccountEvents() {
+  if (!state.currentUser || userRole() !== "seller") return [];
+  const source = state.accountEventsOwnerId === state.currentUser.uid ? state.accountEvents : state.events;
+  return source.filter((event) => event.createdBy === state.currentUser.uid);
+}
+
+async function refreshSellerAccountEvents() {
+  if (!state.currentUser || userRole() !== "seller") return;
+  try {
+    state.accountEvents = await getEvents({ ownerId: state.currentUser.uid });
+    state.accountEventsOwnerId = state.currentUser.uid;
+    if (elements.accountModal && !elements.accountModal.hidden) {
+      renderAccountPanel();
+    }
+  } catch (error) {
+    showToast(error.message || "Could not load seller events.");
+  }
+}
+
 function resetDeleteAccountConfirm() {
   if (elements.deleteAccountConfirm) elements.deleteAccountConfirm.hidden = true;
   if (elements.deleteAccountText) elements.deleteAccountText.value = "";
@@ -2076,15 +2123,19 @@ function renderAccountPanel() {
   const profile = state.currentProfile || {};
   const orders = accountOrders();
   const ticketTotal = orders.reduce((sum, order) => sum + Number(order.quantity || 1), 0);
+  const sellerEvents = sellerAccountEvents();
+  const total = profile.role === "seller" ? sellerEvents.length : ticketTotal;
   const name = profile.displayName || state.currentUser.displayName || userLabel();
   if (elements.accountPanelName) elements.accountPanelName.textContent = name || "-";
   if (elements.accountPanelEmail) elements.accountPanelEmail.textContent = state.currentUser.email || profile.email || "-";
   if (elements.accountPanelRole) elements.accountPanelRole.textContent = statusLabel(profile.role || "buyer");
   if (elements.accountPanelUserId) elements.accountPanelUserId.textContent = profile.userCode || state.currentUser.uid || "-";
   if (elements.accountPanelDob) elements.accountPanelDob.textContent = profile.dateOfBirth ? dateLabel(profile.dateOfBirth) : "-";
-  if (elements.accountPanelTicketTotal) elements.accountPanelTicketTotal.textContent = String(ticketTotal);
+  if (elements.accountPanelTicketTotal) elements.accountPanelTicketTotal.textContent = String(total);
   if (elements.accountTicketCount) {
-    elements.accountTicketCount.textContent = `${orders.length} ticket${orders.length === 1 ? "" : "s"}`;
+    elements.accountTicketCount.textContent = profile.role === "seller"
+      ? `${sellerEvents.length} event${sellerEvents.length === 1 ? "" : "s"}`
+      : `${orders.length} ticket${orders.length === 1 ? "" : "s"}`;
   }
   if (elements.accountTicketList) {
     elements.accountTicketList.innerHTML = orders.length
@@ -2103,6 +2154,7 @@ function openAccountModal() {
   elements.accountModal.hidden = false;
   pushModalHistory();
   syncModalState();
+  refreshSellerAccountEvents();
 }
 
 function closeAccountModal() {
@@ -2577,6 +2629,14 @@ elements.themeToggle.addEventListener("click", () => {
 
 elements.adminAccess.addEventListener("click", () => {
   if (state.currentUser) {
+    if (userRole() === "seller") {
+      closeAllModalsFromHistory();
+      changePanel("seller");
+      window.setTimeout(() => {
+        elements.sellerAccountName?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+      return;
+    }
     openAccountModal();
     return;
   }
@@ -2693,6 +2753,38 @@ elements.sellerProfileForm.addEventListener("submit", async (event) => {
 elements.cancelEventEdit.addEventListener("click", resetEventForm);
 
 elements.agreeSellerTerms.addEventListener("click", acceptSellerAgreement);
+
+elements.sellerAccountSummary?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!state.currentUser || userRole() !== "seller") {
+    showToast("Please login as seller first.");
+    return;
+  }
+  if (!state.sellerInfoEditing) {
+    state.sellerInfoEditing = true;
+    renderSeller();
+    window.setTimeout(() => elements.sellerAccountName?.focus(), 0);
+    return;
+  }
+  if (!elements.sellerAccountSummary.checkValidity()) {
+    elements.sellerAccountSummary.reportValidity();
+    return;
+  }
+
+  const displayName = elements.sellerAccountName.value.trim();
+  const dateOfBirth = elements.sellerAccountDob.value.trim();
+  try {
+    await runButtonAction(elements.sellerAccountSave, "Saving...", async () => {
+      await updateUserProfileInfo({ displayName, dateOfBirth });
+      state.currentProfile = await getUserProfile(state.currentUser.uid);
+      state.sellerInfoEditing = false;
+      showToast("Seller info updated.");
+      render();
+    });
+  } catch (error) {
+    showToast(error.message || "Could not update seller info.");
+  }
+});
 
 elements.sellerEventRows.addEventListener("click", async (event) => {
   const editButton = event.target.closest("[data-action='edit-seller-event']");
@@ -3323,3 +3415,148 @@ watchAuthState(async (user, profile) => {
   await loadData();
   promptSellerProfileIfNeeded();
 });
+
+// TICKOLAS_SELLER_ACCOUNT_PATCH_20260715
+(() => {
+  if (window.__tickolasSellerAccountPatch20260715) return;
+  window.__tickolasSellerAccountPatch20260715 = true;
+
+  const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const nodes = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+  function isSellerContext() {
+    const pageText = normalize(document.body?.innerText);
+    if (pageText.includes('organization panel') || pageText.includes('seller workspace')) return true;
+
+    const activeName = normalize(
+      nodes('button, a')
+        .map((node) => node.textContent)
+        .find((label) => label && !/logout|dark|light|admin|sign up|login/i.test(label))
+    );
+
+    try {
+      for (const key of Object.keys(localStorage)) {
+        const raw = localStorage.getItem(key) || '';
+        const lower = raw.toLowerCase();
+        if (!lower.includes('seller')) continue;
+        if (!activeName || lower.includes(activeName) || lower.includes('"role":"seller"') || lower.includes('role:seller')) {
+          return true;
+        }
+      }
+    } catch (error) {
+      return false;
+    }
+
+    return false;
+  }
+
+  function removeAccountDeletionPanels() {
+    const candidates = nodes('section, article, div')
+      .filter((node) => {
+        const text = normalize(node.innerText);
+        return text.includes('delete account') && (text.includes('permanently delete') || text.includes('type delete') || text.includes('removes your tickolas login'));
+      })
+      .sort((a, b) => (a.innerText || '').length - (b.innerText || '').length);
+
+    if (candidates[0]) candidates[0].remove();
+  }
+
+  function removePurchasedTicketsFromSellerProfile(accountRoot) {
+    const headings = nodes('h1, h2, h3, h4, strong, b', accountRoot).filter((node) => normalize(node.textContent) === 'purchased tickets');
+    headings.forEach((heading) => {
+      let block = heading.closest('section, article, .card, .panel-card, div');
+      while (block && block !== accountRoot) {
+        const text = normalize(block.innerText);
+        if (text.includes('purchased tickets') && (text.includes('ticket history') || text.includes('no purchased ticket') || text.includes('tickets'))) {
+          block.remove();
+          return;
+        }
+        block = block.parentElement;
+      }
+    });
+  }
+
+  function polishSellerAccountProfile() {
+    const accountRoot = nodes('section, article, div')
+      .filter((node) => {
+        const text = normalize(node.innerText);
+        return text.includes('your tickolas account') && text.includes('role') && text.includes('seller');
+      })
+      .sort((a, b) => (a.innerText || '').length - (b.innerText || '').length)[0];
+
+    if (!accountRoot) return;
+    accountRoot.classList.add('seller-account-profile');
+
+    nodes('h1, h2, h3', accountRoot).forEach((heading) => {
+      if (normalize(heading.textContent) === 'your tickolas account') heading.textContent = 'Seller account';
+    });
+
+    nodes('p', accountRoot).forEach((paragraph) => {
+      if (normalize(paragraph.textContent).includes('manage your profile and purchased tickets')) {
+        paragraph.textContent = 'Manage your seller profile and ticket selling workspace from one place.';
+      }
+    });
+
+    nodes('*', accountRoot).forEach((node) => {
+      if (normalize(node.textContent) === 'tickets bought') node.textContent = 'Events created';
+    });
+
+    removePurchasedTicketsFromSellerProfile(accountRoot);
+
+    if (!accountRoot.querySelector('[data-seller-workspace-action]')) {
+      const closeButton = nodes('button, a', accountRoot).find((button) => normalize(button.textContent) === 'x');
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'seller-workspace-action premium-btn';
+      action.dataset.sellerWorkspaceAction = 'true';
+      action.textContent = 'Open ticket selling form';
+      action.addEventListener('click', openSellerWorkspace);
+      (closeButton?.parentElement || accountRoot).appendChild(action);
+    }
+  }
+
+  function openSellerWorkspace() {
+    if (!state.currentUser) {
+      openAuthForm('seller');
+      return;
+    }
+
+    if (userRole() !== 'seller') {
+      showToast('Please login as seller first.');
+      return;
+    }
+
+    closeAccountModal();
+    changePanel('seller');
+    setTimeout(() => {
+      const form = elements.eventForm || nodes('form, section, article, div').find((node) => normalize(node.innerText).includes('create event'));
+      form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 160);
+  }
+
+  function addSellerDashboardShortcut() {
+    if (!isSellerContext()) return;
+    if (document.querySelector('[data-seller-shortcut="true"]')) return;
+
+    const logoutButton = nodes('button, a').find((node) => normalize(node.textContent) === 'logout');
+    if (!logoutButton?.parentElement) return;
+
+    const shortcut = document.createElement('button');
+    shortcut.type = 'button';
+    shortcut.dataset.sellerShortcut = 'true';
+    shortcut.className = 'seller-dashboard-shortcut premium-btn';
+    shortcut.textContent = 'Sell tickets';
+    shortcut.addEventListener('click', openSellerWorkspace);
+    logoutButton.parentElement.insertBefore(shortcut, logoutButton);
+  }
+
+  function applySellerAccountPatch() {
+    removeAccountDeletionPanels();
+    polishSellerAccountProfile();
+  }
+
+  document.addEventListener('DOMContentLoaded', applySellerAccountPatch);
+  document.addEventListener('click', () => setTimeout(applySellerAccountPatch, 50), true);
+  new MutationObserver(applySellerAccountPatch).observe(document.documentElement, { childList: true, subtree: true });
+  setInterval(applySellerAccountPatch, 1500);
+})();
