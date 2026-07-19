@@ -295,7 +295,7 @@
               </article>
               <article class="account-info-card">
                 <span>Date of birth</span>
-                <input id="sellerAccountDob" type="date">
+                <input id="sellerAccountDob" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" pattern="(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}" data-date-format>
               </article>
               <article class="account-info-card">
                 <span>Events created</span>
@@ -376,7 +376,7 @@
               <div class="form-row">
                 <label>
                   <span>Date</span>
-                  <input name="date" type="text" inputmode="numeric" required placeholder="dd/mm/yyyy" pattern="(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}">
+                  <input name="date" type="text" inputmode="numeric" maxlength="10" required placeholder="dd/mm/yyyy" pattern="(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}" data-date-format>
                 </label>
                 <label>
                   <span>Price</span>
@@ -673,7 +673,7 @@
         </label>
         <label>
           <span>Date of birth</span>
-          <input id="sellerProfileDob" type="date">
+          <input id="sellerProfileDob" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" pattern="(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/[0-9]{4}" data-date-format>
         </label>
         <p class="auth-message" id="sellerProfileMessage" hidden></p>
         <button class="primary-button" id="sellerProfileSubmit" type="submit">Save seller info</button>

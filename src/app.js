@@ -504,6 +504,12 @@ function dateLabel(value) {
   return String(value);
 }
 
+function formatBangladeshDateInput(value) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+  const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
+  return parts.join("/");
+}
+
 function statusLabel(value) {
   const status = String(value || "").trim();
   const labels = {
@@ -541,6 +547,11 @@ function parseBangladeshDate(value) {
   }
 
   return `${year}-${month}-${day}`;
+}
+
+function normalizedProfileDate(value) {
+  const dateText = formatBangladeshDateInput(value);
+  return dateText ? parseBangladeshDate(dateText) : "";
 }
 
 function createSlugId(prefix, title) {
@@ -1704,8 +1715,9 @@ function renderSeller() {
   if (elements.sellerAccountEmail) elements.sellerAccountEmail.textContent = state.currentUser?.email || profile.email || "-";
   if (elements.sellerAccountRole) elements.sellerAccountRole.textContent = statusLabel(profile.role || "seller");
   if (elements.sellerAccountUserId) elements.sellerAccountUserId.textContent = profile.userCode || state.currentUser?.uid || "-";
-  if (elements.sellerAccountDob && !state.sellerInfoEditing && elements.sellerAccountDob.value !== String(profile.dateOfBirth || "")) {
-    elements.sellerAccountDob.value = String(profile.dateOfBirth || "");
+  const profileDob = dateLabel(profile.dateOfBirth);
+  if (elements.sellerAccountDob && !state.sellerInfoEditing && elements.sellerAccountDob.value !== profileDob) {
+    elements.sellerAccountDob.value = profileDob;
   }
   if (elements.sellerAccountDob) elements.sellerAccountDob.disabled = !state.sellerInfoEditing;
   if (elements.sellerAccountEventTotal) elements.sellerAccountEventTotal.textContent = String(ownEvents.length);
@@ -2320,7 +2332,7 @@ function openSellerProfileModal() {
   elements.sellerProfileName.placeholder = isSeller ? "Your seller or organization name" : "Your full name";
   elements.sellerProfileSubmit.textContent = isSeller ? "Save seller info" : "Save buyer info";
   elements.sellerProfileName.value = String(state.currentProfile?.displayName || state.currentUser?.displayName || "").trim();
-  elements.sellerProfileDob.value = String(state.currentProfile?.dateOfBirth || "").trim();
+  elements.sellerProfileDob.value = dateLabel(state.currentProfile?.dateOfBirth);
   showSellerProfileMessage("");
   elements.sellerProfileModal.hidden = false;
   pushModalHistory();
@@ -2709,6 +2721,13 @@ elements.passwordToggles.forEach((button) => {
   });
 });
 
+document.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-date-format]");
+  if (!input) return;
+  const formatted = formatBangladeshDateInput(input.value);
+  if (input.value !== formatted) input.value = formatted;
+});
+
 elements.authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   validateConfirmPassword();
@@ -2736,7 +2755,12 @@ elements.sellerProfileForm.addEventListener("submit", async (event) => {
   }
 
   const displayName = elements.sellerProfileName.value.trim();
-  const dateOfBirth = elements.sellerProfileDob.value.trim();
+  const rawDateOfBirth = elements.sellerProfileDob.value.trim();
+  const dateOfBirth = normalizedProfileDate(rawDateOfBirth);
+  if (rawDateOfBirth && !dateOfBirth) {
+    showSellerProfileMessage("Use date format dd/mm/yyyy.");
+    return;
+  }
   try {
     await runButtonAction(elements.sellerProfileSubmit, "Saving...", async () => {
       await updateUserProfileInfo({ displayName, dateOfBirth });
@@ -2772,7 +2796,12 @@ elements.sellerAccountSummary?.addEventListener("submit", async (event) => {
   }
 
   const displayName = elements.sellerAccountName.value.trim();
-  const dateOfBirth = elements.sellerAccountDob.value.trim();
+  const rawDateOfBirth = elements.sellerAccountDob.value.trim();
+  const dateOfBirth = normalizedProfileDate(rawDateOfBirth);
+  if (rawDateOfBirth && !dateOfBirth) {
+    showToast("Use date format dd/mm/yyyy.");
+    return;
+  }
   try {
     await runButtonAction(elements.sellerAccountSave, "Saving...", async () => {
       await updateUserProfileInfo({ displayName, dateOfBirth });
