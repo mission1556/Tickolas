@@ -608,8 +608,8 @@
             <input id="authSellerName" type="text" maxlength="80" placeholder="Your organization or seller name">
           </label>
           <label>
-            <span>Gmail or mobile number</span>
-            <input id="authIdentifier" type="text" required placeholder="name@gmail.com or 01XXXXXXXXX">
+            <span>Gmail address</span>
+            <input id="authIdentifier" type="email" required placeholder="name@gmail.com">
           </label>
           <label>
             <span>Password</span>
@@ -653,6 +653,20 @@
             <img class="google-mark" src="assets/google-g.svg" alt="" aria-hidden="true">
             Continue with Google
           </button>
+          <div class="auth-divider">or</div>
+          <div class="phone-auth">
+            <label>
+              <span>Phone number</span>
+              <input id="authPhoneNumber" type="tel" inputmode="tel" placeholder="+8801XXXXXXXXX">
+            </label>
+            <button class="table-button" id="authSendOtp" type="button">Send OTP</button>
+            <label id="authOtpWrap" hidden>
+              <span>OTP code</span>
+              <input id="authOtpCode" type="text" inputmode="numeric" maxlength="6" placeholder="6 digit code">
+            </label>
+            <button class="primary-button" id="authVerifyOtp" type="button" hidden>Verify OTP</button>
+            <div id="phoneRecaptcha"></div>
+          </div>
           <p class="auth-switch-text">
             <span id="authSwitchPrompt">New here?</span>
             <button id="authSwitch" type="button">Sign up</button>
