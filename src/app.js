@@ -2204,7 +2204,7 @@ function renderEventCard(event) {
 function renderLandingEventCard(event) {
   const remaining = remainingTickets(event);
   return `
-    <article class="landing-event-card" data-action="landing-buy" data-event-id="${escapeHtml(event.id)}" tabindex="0" role="button" aria-label="Buy ticket for ${escapeHtml(event.title)}">
+    <article class="landing-event-card" data-action="landing-buy" data-event-id="${escapeHtml(event.id)}" tabindex="0" role="button" aria-label="View details for ${escapeHtml(event.title)}">
       <div class="landing-event-media"${eventImageStyle(event)}>
         <span>${escapeHtml(event.category)}</span>
       </div>
@@ -2216,7 +2216,7 @@ function renderLandingEventCard(event) {
         <h3>${escapeHtml(event.title)}</h3>
         <p>${escapeHtml(event.venue)}</p>
         <p>${escapeHtml(organizerName(event))} | ${remaining} tickets left</p>
-        <button class="primary-button" type="button" data-action="landing-buy" data-event-id="${escapeHtml(event.id)}">Buy ticket</button>
+        <button class="primary-button" type="button" data-action="landing-buy" data-event-id="${escapeHtml(event.id)}">View details</button>
       </div>
     </article>
   `;
