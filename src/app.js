@@ -88,6 +88,7 @@ const pageNames = {
 
 let pageLoaderTimer = 0;
 let suppressModalPop = false;
+let scannerAudioContext = null;
 
 const accessLabels = {
   admin: "Admin",
@@ -1918,6 +1919,39 @@ function setScannerResult(message, tone = "idle") {
   elements.scannerResult.dataset.tone = tone;
 }
 
+function playScannerTone(tone) {
+  if (!["success", "error"].includes(tone)) return;
+
+  if ("vibrate" in navigator) {
+    navigator.vibrate(tone === "success" ? [70, 35, 70] : [180, 70, 180]);
+  }
+
+  try {
+    scannerAudioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+    const context = scannerAudioContext;
+    const startTime = context.currentTime;
+    const sequence = tone === "success"
+      ? [{ frequency: 660, offset: 0 }, { frequency: 880, offset: 0.13 }]
+      : [{ frequency: 220, offset: 0 }, { frequency: 160, offset: 0.16 }];
+
+    sequence.forEach(({ frequency, offset }) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = tone === "success" ? "sine" : "square";
+      oscillator.frequency.setValueAtTime(frequency, startTime + offset);
+      gain.gain.setValueAtTime(0.0001, startTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.12, startTime + offset + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + offset + 0.12);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(startTime + offset);
+      oscillator.stop(startTime + offset + 0.13);
+    });
+  } catch {
+    // Audio feedback is optional; scanner result text still confirms status.
+  }
+}
+
 function syncScannerEventOptions(ownEvents) {
   const current = elements.scannerEvent.value;
   elements.scannerEvent.innerHTML = ownEvents.length
@@ -1974,6 +2008,7 @@ async function processTicketScan(ticketCode) {
       `${serviceLabel(result.service)} confirmed for ${result.buyerName} (${result.quantity} ticket${Number(result.quantity) > 1 ? "s" : ""}).`,
       "success"
     );
+    playScannerTone("success");
     elements.scannerCode.value = "";
     await loadData();
   } catch (error) {
@@ -1984,6 +2019,7 @@ async function processTicketScan(ticketCode) {
     } else {
       setScannerResult(error.message || "Ticket scan failed.", "error");
     }
+    playScannerTone("error");
   } finally {
     state.scannerBusy = false;
   }
