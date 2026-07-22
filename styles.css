@@ -2838,35 +2838,6 @@ textarea {
   width: 24px;
 }
 
-.auth-divider {
-  align-items: center;
-  color: var(--muted);
-  display: flex;
-  font-size: 0.78rem;
-  font-weight: 900;
-  gap: 12px;
-  justify-content: center;
-  text-transform: uppercase;
-}
-
-.auth-divider::before,
-.auth-divider::after {
-  background: var(--line);
-  content: "";
-  flex: 1;
-  height: 1px;
-}
-
-.phone-auth {
-  display: grid;
-  gap: 12px;
-}
-
-.phone-auth .table-button,
-.phone-auth .primary-button {
-  width: 100%;
-}
-
 .auth-switch-text {
   margin: 0;
   text-align: center;

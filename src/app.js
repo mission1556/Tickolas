@@ -21,7 +21,6 @@ import {
   registerUser,
   resendCurrentUserVerification,
   saveSellerOrganization,
-  sendPhoneOtp,
   settleOrganization,
   scanTicketService,
   updateEvent,
@@ -29,7 +28,6 @@ import {
   updateEventVouchers,
   uploadEventThumbnail,
   updateUserProfileInfo,
-  verifyPhoneOtp,
   watchAuthState
 } from "./firebase.js";
 
@@ -55,7 +53,6 @@ const state = {
   editingImageUrl: "",
   selectedEventId: "",
   pendingBuyerEventId: "",
-  phoneConfirmation: null,
   sellerInfoEditing: false,
   scannerService: "entry",
   scannerBusy: false,
@@ -198,11 +195,6 @@ const elements = {
   authMessage: document.querySelector("#authMessage"),
   authSubmit: document.querySelector("#authSubmit"),
   authGoogle: document.querySelector("#authGoogle"),
-  authPhoneNumber: document.querySelector("#authPhoneNumber"),
-  authSendOtp: document.querySelector("#authSendOtp"),
-  authOtpWrap: document.querySelector("#authOtpWrap"),
-  authOtpCode: document.querySelector("#authOtpCode"),
-  authVerifyOtp: document.querySelector("#authVerifyOtp"),
   authSwitchPrompt: document.querySelector("#authSwitchPrompt"),
   authSwitch: document.querySelector("#authSwitch"),
   sellerProfileModal: document.querySelector("#sellerProfileModal"),
@@ -285,15 +277,6 @@ function loggedInEmail() {
 
 function isGmailAddress(email) {
   return /^[^\s@]+@gmail\.com$/i.test(String(email || "").trim());
-}
-
-function normalizeBangladeshPhone(value) {
-  const raw = String(value || "").trim();
-  const digits = raw.replace(/\D/g, "");
-  if (/^01[3-9]\d{8}$/.test(digits)) return `+88${digits}`;
-  if (/^8801[3-9]\d{8}$/.test(digits)) return `+${digits}`;
-  if (/^1[3-9]\d{8}$/.test(digits)) return `+880${digits}`;
-  return raw.startsWith("+") ? raw.replace(/[^\d+]/g, "") : "";
 }
 
 function routeToProfile(profile) {
@@ -1336,14 +1319,13 @@ function authErrorMessage(error) {
   const messages = {
     "auth/configuration-not-found": "Enable Firebase Authentication Email/Password provider first.",
     "auth/email-already-in-use": "This email already has an account. Please login.",
+    "auth/app-not-authorized": "This domain is not authorized in Firebase Authentication settings.",
+    "auth/captcha-check-failed": "reCAPTCHA check failed. Refresh and try again.",
     "auth/invalid-credential": "No matching account found or password is incorrect. Please sign up first if you are new.",
     "auth/invalid-email": "Please enter a valid email address.",
-    "auth/invalid-phone-number": "Please enter a valid phone number.",
-    "auth/invalid-verification-code": "OTP code is incorrect.",
     "auth/missing-password": "Please enter a password.",
     "auth/popup-closed-by-user": "Google login was closed before completion.",
     "auth/popup-blocked": "Popup blocked. Please allow popups for this site and try again.",
-    "auth/quota-exceeded": "OTP quota exceeded. Please try again later.",
     "auth/too-many-requests": "Too many attempts. Please try again later.",
     "auth/weak-password": "Password should be at least 6 characters."
   };
@@ -2479,43 +2461,41 @@ function resetAuthInputs() {
   elements.authIdentifier.value = "";
   elements.authPassword.value = "";
   elements.authConfirmPassword.value = "";
-  if (elements.authPhoneNumber) elements.authPhoneNumber.value = "";
-  if (elements.authOtpCode) elements.authOtpCode.value = "";
-  if (elements.authOtpWrap) elements.authOtpWrap.hidden = true;
-  if (elements.authVerifyOtp) elements.authVerifyOtp.hidden = true;
-  state.phoneConfirmation = null;
   elements.authConfirmPassword.setCustomValidity("");
   resetPasswordVisibility();
   clearAuthMessage();
 }
 
 function setAuthMode(mode) {
-  state.authMode = "google";
+  state.authMode = mode === "signup" ? "signup" : "login";
   clearAuthMessage();
   const identifierWrap = elements.authIdentifier.closest("label");
   const passwordWrap = elements.authPassword.closest("label");
+  const isSignup = state.authMode === "signup" && state.authRole !== "admin";
 
   elements.authForm.dataset.mode = state.authMode;
-  elements.authFormTitle.textContent = "Continue with Google";
-  elements.authSubmit.hidden = true;
-  elements.authSubmit.disabled = true;
-  elements.authSwitch.parentElement.hidden = true;
-  elements.authSellerNameWrap.hidden = true;
-  elements.authSellerName.required = false;
-  elements.authSellerName.disabled = true;
-  if (identifierWrap) identifierWrap.hidden = true;
-  elements.authIdentifier.required = false;
-  elements.authIdentifier.disabled = true;
-  if (passwordWrap) passwordWrap.hidden = true;
-  elements.authPassword.required = false;
-  elements.authPassword.disabled = true;
-  elements.authConfirmWrap.hidden = true;
-  elements.authConfirmPassword.required = false;
-  elements.authConfirmPassword.disabled = true;
+  elements.authFormTitle.textContent = isSignup ? "Sign up" : "Login";
+  elements.authSubmit.hidden = false;
+  elements.authSubmit.disabled = false;
+  elements.authSubmit.textContent = isSignup ? "Create account" : "Login";
+  elements.authSwitchPrompt.textContent = isSignup ? "Already have an account?" : "New here?";
+  elements.authSwitch.textContent = isSignup ? "Login" : "Sign up";
+  elements.authSwitch.disabled = state.authRole === "admin";
+  elements.authSwitch.parentElement.hidden = state.authRole === "admin";
+  elements.authSellerNameWrap.hidden = !(isSignup && state.authRole === "seller");
+  elements.authSellerName.required = isSignup && state.authRole === "seller";
+  elements.authSellerName.disabled = !(isSignup && state.authRole === "seller");
+  if (identifierWrap) identifierWrap.hidden = false;
+  elements.authIdentifier.required = true;
+  elements.authIdentifier.disabled = false;
+  if (passwordWrap) passwordWrap.hidden = false;
+  elements.authPassword.required = true;
+  elements.authPassword.disabled = false;
+  elements.authConfirmWrap.hidden = !isSignup;
+  elements.authConfirmPassword.required = isSignup;
+  elements.authConfirmPassword.disabled = !isSignup;
   elements.authConfirmPassword.value = "";
   elements.authConfirmPassword.setCustomValidity("");
-  if (elements.authOtpWrap) elements.authOtpWrap.hidden = !state.phoneConfirmation;
-  if (elements.authVerifyOtp) elements.authVerifyOtp.hidden = !state.phoneConfirmation;
 }
 
 function toggleAuthMode() {
@@ -2553,7 +2533,7 @@ async function completeAuthFlow() {
       displayName: state.authRole === "seller" ? elements.authSellerName.value.trim() : ""
     });
     await logoutUser();
-    showAuthMessage("Account created. Please verify your Gmail inbox before login.", "success");
+    showAuthMessage("Verification email sent. Verify your Gmail first, then login to activate your Tickolas account.", "success");
     setAuthMode("login");
     elements.authIdentifier.value = email;
     return;
@@ -2567,9 +2547,12 @@ async function completeAuthFlow() {
     }
     let profile = await getUserProfile(user.uid);
     if (!profile) {
-      await logoutUser();
-      showAuthMessage("No Tickolas account found. Please sign up first.");
-      return;
+      if (state.authRole === "admin") {
+        await logoutUser();
+        showAuthMessage("This account is not an admin.");
+        return;
+      }
+      profile = await ensureUserProfile(user, state.authRole);
     }
     if (profile?.role !== "admin") {
       if (state.authRole === "admin") {
@@ -2634,63 +2617,6 @@ async function completeGoogleAuthFlow() {
   await loadData();
   promptSellerProfileIfNeeded();
   continuePendingBuyerEvent();
-}
-
-async function completePhoneAuthFlow(user) {
-  let profile = await ensureUserProfile(user, state.authRole);
-
-  if (profile?.role !== "admin") {
-    if (state.authRole === "admin") {
-      await logoutUser();
-      showAuthMessage("This phone account is not an admin.");
-      return;
-    }
-    if (profile?.role !== state.authRole) {
-      await logoutUser();
-      showAuthMessage(`This is a ${accessLabels[profile?.role] || "different"} account. Please continue with a ${accessLabels[state.authRole]} account.`);
-      return;
-    }
-  }
-
-  state.currentUser = user;
-  state.currentProfile = profile;
-  state.phoneConfirmation = null;
-  routeToProfile(profile);
-  closeAuthModal(false);
-  showToast("Phone verification successful.");
-  await loadData();
-  promptSellerProfileIfNeeded();
-  continuePendingBuyerEvent();
-}
-
-async function sendAuthOtp() {
-  const phoneNumber = normalizeBangladeshPhone(elements.authPhoneNumber.value);
-  if (!phoneNumber || !/^\+8801[3-9]\d{8}$/.test(phoneNumber)) {
-    showAuthMessage("Please enter a valid Bangladesh phone number.");
-    return;
-  }
-
-  elements.authPhoneNumber.value = phoneNumber;
-  state.phoneConfirmation = await sendPhoneOtp(phoneNumber);
-  elements.authOtpWrap.hidden = false;
-  elements.authVerifyOtp.hidden = false;
-  showAuthMessage("OTP sent. Please check your phone.", "success");
-  elements.authOtpCode.focus();
-}
-
-async function verifyAuthOtp() {
-  const code = String(elements.authOtpCode.value || "").replace(/\D/g, "");
-  if (!state.phoneConfirmation) {
-    showAuthMessage("Please send OTP first.");
-    return;
-  }
-  if (!/^\d{6}$/.test(code)) {
-    showAuthMessage("Please enter the 6 digit OTP.");
-    return;
-  }
-
-  const user = await verifyPhoneOtp(state.phoneConfirmation, code);
-  await completePhoneAuthFlow(user);
 }
 
 function validateConfirmPassword() {
@@ -2818,34 +2744,6 @@ elements.authGoogle.addEventListener("click", async () => {
     hidePageLoader();
   }
 });
-elements.authSendOtp?.addEventListener("click", async () => {
-  clearAuthMessage();
-  try {
-    await runButtonAction(elements.authSendOtp, "Sending...", sendAuthOtp);
-  } catch (error) {
-    showAuthMessage(authErrorMessage(error));
-  }
-});
-elements.authVerifyOtp?.addEventListener("click", async () => {
-  clearAuthMessage();
-  showPageLoader("login", 0);
-  try {
-    await runButtonAction(elements.authVerifyOtp, "Verifying...", verifyAuthOtp);
-  } catch (error) {
-    showAuthMessage(authErrorMessage(error));
-  } finally {
-    hidePageLoader();
-  }
-});
-elements.authOtpCode?.addEventListener("input", () => {
-  elements.authOtpCode.value = String(elements.authOtpCode.value || "").replace(/\D/g, "").slice(0, 6);
-});
-elements.authOtpCode?.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    elements.authVerifyOtp.click();
-  }
-});
 elements.passwordToggles.forEach((button) => {
   button.addEventListener("click", () => {
     const input = document.querySelector(`#${button.dataset.target}`);
@@ -2867,14 +2765,20 @@ document.addEventListener("input", (event) => {
 
 elements.authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  validateConfirmPassword();
+  if (!elements.authForm.checkValidity()) {
+    hidePageLoader();
+    elements.authForm.reportValidity();
+    return;
+  }
+  showPageLoader("login", 0);
+  await waitForNextPaint();
   try {
-    if (state.phoneConfirmation) {
-      await verifyAuthOtp();
-    } else if (elements.authPhoneNumber.value.trim()) {
-      await sendAuthOtp();
-    }
+    await completeAuthFlow();
   } catch (error) {
     showAuthMessage(authErrorMessage(error));
+  } finally {
+    hidePageLoader();
   }
 });
 

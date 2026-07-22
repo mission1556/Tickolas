@@ -5,10 +5,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
-  RecaptchaVerifier,
   sendEmailVerification,
   signInWithEmailAndPassword,
-  signInWithPhoneNumber,
   signInWithPopup,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -38,7 +36,6 @@ const firebaseConfig = {
 export const firebaseApp = initializeApp(firebaseConfig);
 export const db = getFirestore(firebaseApp);
 export const auth = getAuth(firebaseApp);
-let phoneRecaptchaVerifier = null;
 
 const CLOUDINARY_CLOUD_NAME = "qsbc4vql";
 const CLOUDINARY_UPLOAD_PRESET = "tickolas_unsigned_uploads";
@@ -118,7 +115,6 @@ export async function ensureUserProfile(user, role) {
 
   const profile = {
     email: user.email || "",
-    phoneNumber: user.phoneNumber || "",
     role,
     displayName: user.displayName || "",
     userCode: compactUserCode(role, user.uid),
@@ -131,14 +127,6 @@ export async function ensureUserProfile(user, role) {
 export async function registerUser({ email, password, role, displayName = "", dateOfBirth = "" }) {
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(credential.user);
-  await setDoc(doc(db, "users", credential.user.uid), {
-    email,
-    role,
-    displayName: String(displayName || "").trim(),
-    dateOfBirth: String(dateOfBirth || "").trim(),
-    userCode: compactUserCode(role, credential.user.uid),
-    createdAt: serverTimestamp()
-  });
   return credential.user;
 }
 
@@ -180,20 +168,6 @@ export async function loginWithGoogle() {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   const credential = await signInWithPopup(auth, provider);
-  return credential.user;
-}
-
-export async function sendPhoneOtp(phoneNumber, containerId = "phoneRecaptcha") {
-  if (!phoneRecaptchaVerifier) {
-    phoneRecaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
-      size: "invisible"
-    });
-  }
-  return signInWithPhoneNumber(auth, phoneNumber, phoneRecaptchaVerifier);
-}
-
-export async function verifyPhoneOtp(confirmationResult, code) {
-  const credential = await confirmationResult.confirm(code);
   return credential.user;
 }
 
