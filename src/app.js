@@ -1940,7 +1940,7 @@ function playScannerTone(tone) {
       oscillator.type = tone === "success" ? "sine" : "square";
       oscillator.frequency.setValueAtTime(frequency, startTime + offset);
       gain.gain.setValueAtTime(0.0001, startTime + offset);
-      gain.gain.exponentialRampToValueAtTime(0.12, startTime + offset + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.32, startTime + offset + 0.015);
       gain.gain.exponentialRampToValueAtTime(0.0001, startTime + offset + 0.12);
       oscillator.connect(gain);
       gain.connect(context.destination);
