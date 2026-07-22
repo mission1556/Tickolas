@@ -56,7 +56,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (
           isOwner(userId)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "dateOfBirth", "phone", "updatedAt"])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "dateOfBirth", "phoneNumber", "updatedAt"])
           && request.resource.data.role == resource.data.role
           && request.resource.data.email == resource.data.email
           && request.resource.data.createdAt == resource.data.createdAt

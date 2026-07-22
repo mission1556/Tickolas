@@ -116,7 +116,11 @@ const elements = {
   adminOrgRows: document.querySelector("#adminOrgRows"),
   adminUserSearch: document.querySelector("#adminUserSearch"),
   adminUserRows: document.querySelector("#adminUserRows"),
+  adminSellerRows: document.querySelector("#adminSellerRows"),
+  adminBuyerRows: document.querySelector("#adminBuyerRows"),
   adminUserCount: document.querySelector("#adminUserCount"),
+  adminSellerCount: document.querySelector("#adminSellerCount"),
+  adminBuyerCount: document.querySelector("#adminBuyerCount"),
   adminEventRows: document.querySelector("#adminEventRows"),
   adminActivityFeed: document.querySelector("#adminActivityFeed"),
   adminActivityCount: document.querySelector("#adminActivityCount"),
@@ -131,6 +135,7 @@ const elements = {
   sellerAccountRole: document.querySelector("#sellerAccountRole"),
   sellerAccountUserId: document.querySelector("#sellerAccountUserId"),
   sellerAccountDob: document.querySelector("#sellerAccountDob"),
+  sellerAccountPhone: document.querySelector("#sellerAccountPhone"),
   sellerAccountEventTotal: document.querySelector("#sellerAccountEventTotal"),
   sellerAccountSave: document.querySelector("#sellerAccountSave"),
   agreeSellerTerms: document.querySelector("#agreeSellerTerms"),
@@ -205,6 +210,7 @@ const elements = {
   sellerProfileNameLabel: document.querySelector("#sellerProfileNameLabel"),
   sellerProfileName: document.querySelector("#sellerProfileName"),
   sellerProfileDob: document.querySelector("#sellerProfileDob"),
+  sellerProfilePhone: document.querySelector("#sellerProfilePhone"),
   sellerProfileMessage: document.querySelector("#sellerProfileMessage"),
   sellerProfileSubmit: document.querySelector("#sellerProfileSubmit"),
   accountModal: document.querySelector("#accountModal"),
@@ -214,6 +220,7 @@ const elements = {
   accountPanelRole: document.querySelector("#accountPanelRole"),
   accountPanelUserId: document.querySelector("#accountPanelUserId"),
   accountPanelDob: document.querySelector("#accountPanelDob"),
+  accountPanelPhone: document.querySelector("#accountPanelPhone"),
   accountPanelTicketTotal: document.querySelector("#accountPanelTicketTotal"),
   accountTicketCount: document.querySelector("#accountTicketCount"),
   accountTicketList: document.querySelector("#accountTicketList"),
@@ -275,8 +282,13 @@ function loggedInEmail() {
   return state.currentUser?.email || state.currentProfile?.email || "";
 }
 
-function isGmailAddress(email) {
-  return /^[^\s@]+@gmail\.com$/i.test(String(email || "").trim());
+function normalizeBangladeshPhone(value) {
+  const raw = String(value || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (/^01[3-9]\d{8}$/.test(digits)) return `+88${digits}`;
+  if (/^8801[3-9]\d{8}$/.test(digits)) return `+${digits}`;
+  if (/^1[3-9]\d{8}$/.test(digits)) return `+880${digits}`;
+  return raw.startsWith("+") ? raw.replace(/[^\d+]/g, "") : "";
 }
 
 function routeToProfile(profile) {
@@ -1497,7 +1509,7 @@ function eventTitle(eventId) {
 }
 
 function renderAdminUsers() {
-  if (!elements.adminUserRows) return;
+  if (!elements.adminSellerRows || !elements.adminBuyerRows) return;
 
   const queryText = state.adminUserQuery;
   const users = [...state.users]
@@ -1517,23 +1529,68 @@ function renderAdminUsers() {
     });
 
   elements.adminUserCount.textContent = `${users.length} account${users.length === 1 ? "" : "s"}`;
-  elements.adminUserRows.innerHTML = users.length
-    ? users
+  const sellers = users.filter((profile) => profile.role === "seller");
+  const buyers = users.filter((profile) => profile.role === "buyer");
+  elements.adminSellerCount.textContent = `${sellers.length} seller${sellers.length === 1 ? "" : "s"}`;
+  elements.adminBuyerCount.textContent = `${buyers.length} buyer${buyers.length === 1 ? "" : "s"}`;
+
+  const renderRows = (profiles, emptyLabel) => profiles.length
+    ? profiles
         .map((profile) => `
           <tr>
             <td><span class="user-id-pill">${escapeHtml(profileUserCode(profile))}</span></td>
             <td>${escapeHtml(profileName(profile))}</td>
             <td>${escapeHtml(profile.email || "No email")}</td>
-            <td><span class="role-pill">${escapeHtml(roleName(profile.role))}</span></td>
             <td>${recordDate(profile.createdAt)}</td>
+            <td><button class="table-button secondary" type="button" data-action="admin-user-details" data-user-id="${escapeHtml(profile.id)}">See details</button></td>
           </tr>
         `)
         .join("")
     : `
       <tr>
-        <td colspan="5" class="muted-cell">No account matched.</td>
+        <td colspan="5" class="muted-cell">${emptyLabel}</td>
       </tr>
     `;
+
+  elements.adminSellerRows.innerHTML = renderRows(sellers, "No seller account matched.");
+  elements.adminBuyerRows.innerHTML = renderRows(buyers, "No buyer account matched.");
+}
+
+function openAdminUserDetails(userId) {
+  const profile = state.users.find((item) => item.id === userId);
+  if (!profile) {
+    showToast("Account not found.");
+    return;
+  }
+
+  const ownedEvents = state.events.filter((event) => event.createdBy === profile.id);
+  const userOrders = state.orders.filter((order) => order.userId === profile.id || order.buyerEmail === profile.email);
+  const role = String(profile.role || "");
+  const activityMetric = role === "seller"
+    ? `<div><dt>Created events</dt><dd>${ownedEvents.length}</dd></div>`
+    : `<div><dt>Purchased tickets</dt><dd>${userOrders.length}</dd></div>`;
+  elements.eventDetailsBody.innerHTML = `
+    <div class="event-details-header">
+      <div>
+        <p class="eyebrow">Account details</p>
+        <h2 id="eventDetailsTitle">${escapeHtml(profileName(profile))}</h2>
+      </div>
+      <span class="role-pill">${escapeHtml(roleName(profile.role))}</span>
+    </div>
+    <dl class="event-details-grid">
+      <div><dt>User ID</dt><dd>${escapeHtml(profileUserCode(profile))}</dd></div>
+      <div><dt>Email</dt><dd>${escapeHtml(profile.email || "No email")}</dd></div>
+      <div><dt>Phone</dt><dd>${escapeHtml(profile.phoneNumber || "-")}</dd></div>
+      <div><dt>Date of birth</dt><dd>${profile.dateOfBirth ? dateLabel(profile.dateOfBirth) : "-"}</dd></div>
+      <div><dt>Joined</dt><dd>${recordDate(profile.createdAt)}</dd></div>
+      ${activityMetric}
+      <div><dt>Profile document ID</dt><dd>${escapeHtml(profile.id || "-")}</dd></div>
+    </dl>
+  `;
+  elements.eventDetailsModal.hidden = false;
+  pushModalHistory();
+  syncModalState();
+  window.setTimeout(() => elements.closeEventDetails.focus(), 0);
 }
 
 function renderAdminActivity() {
@@ -1728,6 +1785,10 @@ function renderSeller() {
     elements.sellerAccountDob.value = profileDob;
   }
   if (elements.sellerAccountDob) elements.sellerAccountDob.disabled = !state.sellerInfoEditing;
+  if (elements.sellerAccountPhone && !state.sellerInfoEditing && elements.sellerAccountPhone.value !== String(profile.phoneNumber || "")) {
+    elements.sellerAccountPhone.value = String(profile.phoneNumber || "");
+  }
+  if (elements.sellerAccountPhone) elements.sellerAccountPhone.disabled = !state.sellerInfoEditing;
   if (elements.sellerAccountEventTotal) elements.sellerAccountEventTotal.textContent = String(ownEvents.length);
   if (elements.sellerAccountSave) {
     elements.sellerAccountSave.textContent = state.sellerInfoEditing ? "Save info" : "Update your info";
@@ -2151,6 +2212,7 @@ function renderAccountPanel() {
   if (elements.accountPanelRole) elements.accountPanelRole.textContent = statusLabel(profile.role || "buyer");
   if (elements.accountPanelUserId) elements.accountPanelUserId.textContent = profile.userCode || state.currentUser.uid || "-";
   if (elements.accountPanelDob) elements.accountPanelDob.textContent = profile.dateOfBirth ? dateLabel(profile.dateOfBirth) : "-";
+  if (elements.accountPanelPhone) elements.accountPanelPhone.textContent = profile.phoneNumber || "-";
   if (elements.accountPanelTicketTotal) elements.accountPanelTicketTotal.textContent = String(total);
   if (elements.accountTicketCount) {
     elements.accountTicketCount.textContent = profile.role === "seller"
@@ -2302,8 +2364,8 @@ function openAuthForm(role) {
   elements.authForm.hidden = false;
   elements.authRoleLabel.textContent = role === "admin" ? "Admin access" : role === "buyer" ? "Buyer access" : "Seller access";
   resetAuthInputs();
-  setAuthMode("google");
-  elements.authGoogle.focus();
+  setAuthMode("login");
+  elements.authIdentifier.focus();
 }
 
 function startBuyerFlow(eventId) {
@@ -2321,7 +2383,9 @@ function closeAuthModal(clearPendingBuyerEvent = true) {
 
 function profileNeedsInfo(profile = state.currentProfile) {
   if (!["buyer", "seller"].includes(profile?.role)) return false;
-  return !String(profile.displayName || "").trim() || !String(profile.dateOfBirth || "").trim();
+  return !String(profile.displayName || "").trim()
+    || !String(profile.dateOfBirth || "").trim()
+    || !String(profile.phoneNumber || "").trim();
 }
 
 function showSellerProfileMessage(message) {
@@ -2334,13 +2398,14 @@ function openSellerProfileModal() {
   elements.sellerProfileEyebrow.textContent = isSeller ? "Seller info" : "Buyer info";
   elements.sellerProfileTitle.textContent = "Update your info";
   elements.sellerProfileCopy.textContent = isSeller
-    ? "Add your seller name and date of birth so buyers and the navbar show a professional organizer identity."
-    : "Add your name and date of birth so your ticket profile stays complete.";
+    ? "Add your seller name, date of birth, and phone number so buyers and the navbar show a professional organizer identity."
+    : "Add your name, date of birth, and phone number so your ticket profile stays complete.";
   elements.sellerProfileNameLabel.textContent = isSeller ? "Seller name" : "Name";
   elements.sellerProfileName.placeholder = isSeller ? "Your seller or organization name" : "Your full name";
   elements.sellerProfileSubmit.textContent = isSeller ? "Save seller info" : "Save buyer info";
   elements.sellerProfileName.value = String(state.currentProfile?.displayName || state.currentUser?.displayName || "").trim();
   elements.sellerProfileDob.value = dateLabel(state.currentProfile?.dateOfBirth);
+  elements.sellerProfilePhone.value = String(state.currentProfile?.phoneNumber || "").trim();
   showSellerProfileMessage("");
   elements.sellerProfileModal.hidden = false;
   pushModalHistory();
@@ -2520,11 +2585,6 @@ async function completeAuthFlow() {
     showAuthMessage("Please enter a valid email address.");
     return;
   }
-  if (!isGmailAddress(email)) {
-    showAuthMessage("Please use a valid Gmail address ending with @gmail.com.");
-    return;
-  }
-
   if (isSignup) {
     const user = await registerUser({
       email,
@@ -2533,7 +2593,7 @@ async function completeAuthFlow() {
       displayName: state.authRole === "seller" ? elements.authSellerName.value.trim() : ""
     });
     await logoutUser();
-    showAuthMessage("Verification email sent. Verify your Gmail first, then login to activate your Tickolas account.", "success");
+    showAuthMessage("Verification email sent. Verify your inbox first, then login to activate your Tickolas account.", "success");
     setAuthMode("login");
     elements.authIdentifier.value = email;
     return;
@@ -2542,7 +2602,7 @@ async function completeAuthFlow() {
     if (!user.emailVerified) {
       await resendCurrentUserVerification().catch(() => {});
       await logoutUser();
-      showAuthMessage("Please verify your Gmail inbox first. We sent the verification email again.");
+      showAuthMessage("Please verify your email inbox first. We sent the verification email again.");
       return;
     }
     let profile = await getUserProfile(user.uid);
@@ -2580,11 +2640,6 @@ async function completeAuthFlow() {
 
 async function completeGoogleAuthFlow() {
   const user = await loginWithGoogle();
-  if (!isGmailAddress(user.email)) {
-    await logoutUser();
-    showAuthMessage("Please continue with a Gmail address ending with @gmail.com.");
-    return;
-  }
   let profile = await getUserProfile(user.uid);
 
   if (!profile) {
@@ -2792,13 +2847,18 @@ elements.sellerProfileForm.addEventListener("submit", async (event) => {
   const displayName = elements.sellerProfileName.value.trim();
   const rawDateOfBirth = elements.sellerProfileDob.value.trim();
   const dateOfBirth = normalizedProfileDate(rawDateOfBirth);
+  const phoneNumber = normalizeBangladeshPhone(elements.sellerProfilePhone.value);
   if (rawDateOfBirth && !dateOfBirth) {
     showSellerProfileMessage("Use date format dd/mm/yyyy.");
     return;
   }
+  if (!/^\+8801[3-9]\d{8}$/.test(phoneNumber)) {
+    showSellerProfileMessage("Please enter a valid Bangladesh phone number.");
+    return;
+  }
   try {
     await runButtonAction(elements.sellerProfileSubmit, "Saving...", async () => {
-      await updateUserProfileInfo({ displayName, dateOfBirth });
+      await updateUserProfileInfo({ displayName, dateOfBirth, phoneNumber });
       state.currentProfile = await getUserProfile(state.currentUser.uid);
       closeSellerProfileModal();
       showToast("Profile info updated.");
@@ -2833,13 +2893,18 @@ elements.sellerAccountSummary?.addEventListener("submit", async (event) => {
   const displayName = elements.sellerAccountName.value.trim();
   const rawDateOfBirth = elements.sellerAccountDob.value.trim();
   const dateOfBirth = normalizedProfileDate(rawDateOfBirth);
+  const phoneNumber = normalizeBangladeshPhone(elements.sellerAccountPhone.value);
   if (rawDateOfBirth && !dateOfBirth) {
     showToast("Use date format dd/mm/yyyy.");
     return;
   }
+  if (!/^\+8801[3-9]\d{8}$/.test(phoneNumber)) {
+    showToast("Please enter a valid Bangladesh phone number.");
+    return;
+  }
   try {
     await runButtonAction(elements.sellerAccountSave, "Saving...", async () => {
-      await updateUserProfileInfo({ displayName, dateOfBirth });
+      await updateUserProfileInfo({ displayName, dateOfBirth, phoneNumber });
       state.currentProfile = await getUserProfile(state.currentUser.uid);
       state.sellerInfoEditing = false;
       showToast("Seller info updated.");
@@ -3191,6 +3256,14 @@ elements.adminEventRows.addEventListener("click", async (event) => {
     }
 
     await loadData();
+  });
+});
+
+[elements.adminSellerRows, elements.adminBuyerRows].forEach((tableBody) => {
+  tableBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-action='admin-user-details']");
+    if (!button) return;
+    openAdminUserDetails(button.dataset.userId);
   });
 });
 

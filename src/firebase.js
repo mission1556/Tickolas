@@ -135,7 +135,7 @@ export async function getUsers() {
   return fromSnap(snapshot).sort(byCreatedAtDesc);
 }
 
-export async function updateUserProfileInfo({ displayName = "", dateOfBirth = "" }) {
+export async function updateUserProfileInfo({ displayName = "", dateOfBirth = "", phoneNumber = "" }) {
   if (!auth.currentUser) {
     throw new Error("Please login first.");
   }
@@ -147,6 +147,9 @@ export async function updateUserProfileInfo({ displayName = "", dateOfBirth = ""
 
   if (dateOfBirth !== undefined) {
     payload.dateOfBirth = String(dateOfBirth || "").trim();
+  }
+  if (phoneNumber !== undefined) {
+    payload.phoneNumber = String(phoneNumber || "").trim();
   }
 
   await updateDoc(doc(db, "users", auth.currentUser.uid), payload);
